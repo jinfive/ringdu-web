@@ -1,4 +1,4 @@
-export type SignupRole = "OWNER" | "PARENT" | "STUDENT";
+export type SignupRole = "TEACHER" | "PARENT" | "STUDENT";
 
 export type SignupRequest = {
   email: string;

@@ -12,23 +12,26 @@ export function SocialSignupButtons() {
   const [message, setMessage] = useState("");
 
   const handleClick = () => {
-    setMessage("간편 가입은 준비 중입니다.");
+    setMessage("간편가입은 준비 중입니다.");
   };
 
   return (
-    <div className="mt-5 space-y-3">
-      {socialProviders.map((provider) => (
-        <button
-          key={provider.name}
-          type="button"
-          onClick={handleClick}
-          className={`h-12 w-full rounded-md border px-4 text-base font-semibold transition ${provider.className}`}
-        >
-          {provider.name}로 시작하기
-        </button>
-      ))}
+    <div className="mt-6 border-t border-slate-100 pt-6">
+      <p className="mb-4 text-center text-sm font-semibold text-slate-700">간편가입</p>
+      <div className="space-y-3">
+        {socialProviders.map((provider) => (
+          <button
+            key={provider.name}
+            type="button"
+            onClick={handleClick}
+            className={`h-12 w-full rounded-md border px-4 text-base font-semibold transition ${provider.className}`}
+          >
+            {provider.name}로 간편가입
+          </button>
+        ))}
+      </div>
       {message ? (
-        <p className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-center text-sm font-medium text-blue-700">
+        <p className="mt-3 rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-center text-sm font-medium text-blue-700">
           {message}
         </p>
       ) : null}

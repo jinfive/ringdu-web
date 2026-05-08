@@ -37,7 +37,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8081
 
 - 메인 페이지: `/`
 - 회원가입 유형 선택 페이지: `/signup`
-- 학원 가입 페이지: `/signup/academy`
+- 선생님 가입 페이지: `/signup/teacher`
 - 학부모 가입 페이지: `/signup/parent`
 - 학생 가입 페이지: `/signup/student`
 

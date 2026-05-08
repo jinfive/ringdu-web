@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ParentSignupForm } from "@/components/auth/ParentSignupForm";
+import { SocialSignupButtons } from "@/components/auth/SocialSignupButtons";
 
 export default function ParentSignupPage() {
   return (
@@ -28,6 +29,7 @@ export default function ParentSignupPage() {
               </p>
             </div>
             <ParentSignupForm />
+            <SocialSignupButtons />
           </div>
         </section>
       </div>
