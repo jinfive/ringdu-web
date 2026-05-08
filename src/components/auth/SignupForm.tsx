@@ -2,20 +2,48 @@
 
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import {
+  type FieldErrors,
+  type Resolver,
+  type UseFormRegister,
+  useForm,
+} from "react-hook-form";
 import { signup } from "@/lib/api";
-import { signupSchema, type SignupFormValues } from "@/lib/validations/auth";
-import type { Role } from "@/types/auth";
+import { academySignupSchema, baseSignupSchema } from "@/lib/validations/auth";
+import type { SignupRole } from "@/types/auth";
 
-const roleOptions: Array<{ value: Role; label: string }> = [
-  { value: "OWNER", label: "원장 OWNER" },
-  { value: "DESK", label: "데스크 DESK" },
-  { value: "TEACHER", label: "선생님 TEACHER" },
-  { value: "PARENT", label: "학부모 PARENT" },
-  { value: "STUDENT", label: "학생 STUDENT" },
-];
+type SignupFormValues = {
+  email: string;
+  password: string;
+  name: string;
+  phone: string;
+  academyName?: string;
+  academyPhone?: string;
+  academyAddress?: string;
+};
 
-export function SignupForm() {
+type SignupSchema = typeof baseSignupSchema | typeof academySignupSchema;
+
+type SignupFormProps = {
+  role: SignupRole;
+  schema: SignupSchema;
+  defaultValues: SignupFormValues;
+  submitLabel: string;
+  children?: (props: {
+    register: UseFormRegister<SignupFormValues>;
+    errors: FieldErrors<SignupFormValues>;
+  }) => React.ReactNode;
+  notice?: string;
+};
+
+export function SignupForm({
+  role,
+  schema,
+  defaultValues,
+  submitLabel,
+  children,
+  notice,
+}: SignupFormProps) {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -25,14 +53,8 @@ export function SignupForm() {
     reset,
     formState: { errors, isSubmitting },
   } = useForm<SignupFormValues>({
-    resolver: zodResolver(signupSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-      name: "",
-      phone: "",
-      role: "OWNER",
-    },
+    resolver: zodResolver(schema) as Resolver<SignupFormValues>,
+    defaultValues,
   });
 
   const onSubmit = async (values: SignupFormValues) => {
@@ -40,9 +62,17 @@ export function SignupForm() {
     setErrorMessage("");
 
     try {
-      const response = await signup(values);
+      const { email, password, name, phone } = values;
+      // Academy fields are collected for the UI flow now, and will be sent after the backend signup API expands.
+      const response = await signup({
+        email,
+        password,
+        name,
+        phone,
+        role,
+      });
       setSuccessMessage(`${response.name}님의 계정이 생성되었습니다.`);
-      reset();
+      reset(defaultValues);
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -54,29 +84,9 @@ export function SignupForm() {
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
-      <Field label="이메일" error={errors.email?.message}>
+      <Field label="이름" error={getErrorMessage(errors.name)}>
         <input
-          className="h-12 w-full rounded-md border border-slate-200 bg-white px-4 text-base text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-          type="email"
-          autoComplete="email"
-          placeholder="name@example.com"
-          {...register("email")}
-        />
-      </Field>
-
-      <Field label="비밀번호" error={errors.password?.message}>
-        <input
-          className="h-12 w-full rounded-md border border-slate-200 bg-white px-4 text-base text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-          type="password"
-          autoComplete="new-password"
-          placeholder="8자 이상 입력"
-          {...register("password")}
-        />
-      </Field>
-
-      <Field label="이름" error={errors.name?.message}>
-        <input
-          className="h-12 w-full rounded-md border border-slate-200 bg-white px-4 text-base text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          className={inputClassName}
           type="text"
           autoComplete="name"
           placeholder="홍길동"
@@ -84,9 +94,29 @@ export function SignupForm() {
         />
       </Field>
 
-      <Field label="전화번호" error={errors.phone?.message}>
+      <Field label="이메일" error={getErrorMessage(errors.email)}>
         <input
-          className="h-12 w-full rounded-md border border-slate-200 bg-white px-4 text-base text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          className={inputClassName}
+          type="email"
+          autoComplete="email"
+          placeholder="name@example.com"
+          {...register("email")}
+        />
+      </Field>
+
+      <Field label="비밀번호" error={getErrorMessage(errors.password)}>
+        <input
+          className={inputClassName}
+          type="password"
+          autoComplete="new-password"
+          placeholder="8자 이상 입력"
+          {...register("password")}
+        />
+      </Field>
+
+      <Field label="전화번호" error={getErrorMessage(errors.phone)}>
+        <input
+          className={inputClassName}
           type="tel"
           autoComplete="tel"
           placeholder="010-1234-5678"
@@ -94,18 +124,13 @@ export function SignupForm() {
         />
       </Field>
 
-      <Field label="권한" error={errors.role?.message}>
-        <select
-          className="h-12 w-full rounded-md border border-slate-200 bg-white px-4 text-base text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-          {...register("role")}
-        >
-          {roleOptions.map((role) => (
-            <option key={role.value} value={role.value}>
-              {role.label}
-            </option>
-          ))}
-        </select>
-      </Field>
+      {children?.({ register, errors })}
+
+      {notice ? (
+        <p className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
+          {notice}
+        </p>
+      ) : null}
 
       {successMessage ? (
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
@@ -124,13 +149,16 @@ export function SignupForm() {
         disabled={isSubmitting}
         className="h-12 w-full rounded-md bg-blue-700 px-4 text-base font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300"
       >
-        {isSubmitting ? "가입 처리 중" : "회원가입"}
+        {isSubmitting ? "가입 처리 중" : submitLabel}
       </button>
     </form>
   );
 }
 
-function Field({
+export const inputClassName =
+  "h-12 w-full rounded-md border border-slate-200 bg-white px-4 text-base text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100";
+
+export function Field({
   label,
   error,
   children,
@@ -146,4 +174,13 @@ function Field({
       {error ? <span className="mt-2 block text-sm font-medium text-red-600">{error}</span> : null}
     </label>
   );
+}
+
+export function getErrorMessage(error: unknown) {
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    return typeof message === "string" ? message : undefined;
+  }
+
+  return undefined;
 }
