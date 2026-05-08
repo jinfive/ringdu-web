@@ -2,46 +2,20 @@
 
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  type FieldErrors,
-  type Resolver,
-  type UseFormRegister,
-  useForm,
-} from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { signup } from "@/lib/api";
-import { academySignupSchema, baseSignupSchema } from "@/lib/validations/auth";
+import { baseSignupSchema, type BaseSignupFormValues } from "@/lib/validations/auth";
 import type { SignupRole } from "@/types/auth";
-
-type SignupFormValues = {
-  email: string;
-  password: string;
-  name: string;
-  phone: string;
-  academyName?: string;
-  academyPhone?: string;
-  academyAddress?: string;
-};
-
-type SignupSchema = typeof baseSignupSchema | typeof academySignupSchema;
 
 type SignupFormProps = {
   role: SignupRole;
-  schema: SignupSchema;
-  defaultValues: SignupFormValues;
   submitLabel: string;
-  children?: (props: {
-    register: UseFormRegister<SignupFormValues>;
-    errors: FieldErrors<SignupFormValues>;
-  }) => React.ReactNode;
   notice?: string;
 };
 
 export function SignupForm({
   role,
-  schema,
-  defaultValues,
   submitLabel,
-  children,
   notice,
 }: SignupFormProps) {
   const [successMessage, setSuccessMessage] = useState("");
@@ -52,18 +26,22 @@ export function SignupForm({
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<SignupFormValues>({
-    resolver: zodResolver(schema) as Resolver<SignupFormValues>,
-    defaultValues,
+  } = useForm<BaseSignupFormValues>({
+    resolver: zodResolver(baseSignupSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      name: "",
+      phone: "",
+    },
   });
 
-  const onSubmit = async (values: SignupFormValues) => {
+  const onSubmit = async (values: BaseSignupFormValues) => {
     setSuccessMessage("");
     setErrorMessage("");
 
     try {
       const { email, password, name, phone } = values;
-      // Academy fields are collected for the UI flow now, and will be sent after the backend signup API expands.
       const response = await signup({
         email,
         password,
@@ -72,7 +50,7 @@ export function SignupForm({
         role,
       });
       setSuccessMessage(`${response.name}님의 계정이 생성되었습니다.`);
-      reset(defaultValues);
+      reset();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -124,8 +102,6 @@ export function SignupForm({
         />
       </Field>
 
-      {children?.({ register, errors })}
-
       {notice ? (
         <p className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
           {notice}
@@ -158,7 +134,7 @@ export function SignupForm({
 export const inputClassName =
   "h-12 w-full rounded-md border border-slate-200 bg-white px-4 text-base text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100";
 
-export function Field({
+function Field({
   label,
   error,
   children,
@@ -176,7 +152,7 @@ export function Field({
   );
 }
 
-export function getErrorMessage(error: unknown) {
+function getErrorMessage(error: unknown) {
   if (error && typeof error === "object" && "message" in error) {
     const message = (error as { message?: unknown }).message;
     return typeof message === "string" ? message : undefined;

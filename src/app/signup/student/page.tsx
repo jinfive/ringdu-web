@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SocialSignupButtons } from "@/components/auth/SocialSignupButtons";
 import { StudentSignupForm } from "@/components/auth/StudentSignupForm";
 
 export default function StudentSignupPage() {
@@ -28,6 +29,7 @@ export default function StudentSignupPage() {
               </p>
             </div>
             <StudentSignupForm />
+            <SocialSignupButtons />
           </div>
         </section>
       </div>

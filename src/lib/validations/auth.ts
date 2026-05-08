@@ -7,11 +7,4 @@ export const baseSignupSchema = z.object({
   phone: z.string().trim().min(1, "전화번호를 입력해 주세요."),
 });
 
-export const academySignupSchema = baseSignupSchema.extend({
-  academyName: z.string().trim().min(1, "학원명을 입력해 주세요."),
-  academyPhone: z.string().trim().min(1, "학원 전화번호를 입력해 주세요."),
-  academyAddress: z.string().trim().min(1, "학원 주소를 입력해 주세요."),
-});
-
 export type BaseSignupFormValues = z.infer<typeof baseSignupSchema>;
-export type AcademySignupFormValues = z.infer<typeof academySignupSchema>;

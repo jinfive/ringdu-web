@@ -1,16 +1,15 @@
 import Link from "next/link";
 import { SignupTypeCard } from "@/components/auth/SignupTypeCard";
-import { SocialSignupButtons } from "@/components/auth/SocialSignupButtons";
 
 const signupTypes = [
   {
-    title: "학원 가입",
-    description: "학원 원장님이 학원 운영을 시작하기 위한 가입입니다.",
-    href: "/signup/academy",
+    title: "선생님 가입",
+    description: "학원 수업, 출석, 숙제를 관리하기 위한 선생님 계정입니다.",
+    href: "/signup/teacher",
   },
   {
     title: "학부모 가입",
-    description: "자녀의 시간표, 출석, 숙제, 청구서를 확인하기 위한 가입입니다.",
+    description: "자녀의 시간표, 출석, 숙제, 청구서를 확인하기 위한 학부모 계정입니다.",
     href: "/signup/parent",
   },
   {
@@ -51,14 +50,6 @@ export default function SignupPage() {
               {signupTypes.map((type) => (
                 <SignupTypeCard key={type.href} {...type} />
               ))}
-            </div>
-
-            <div className="mx-auto mt-8 max-w-md rounded-lg border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/60">
-              <h2 className="text-center text-base font-semibold text-slate-950">간편 가입</h2>
-              <p className="mt-2 text-center text-sm leading-6 text-slate-500">
-                카카오, 네이버, 구글 계정으로 시작하는 기능은 준비 중입니다.
-              </p>
-              <SocialSignupButtons />
             </div>
           </div>
         </section>
