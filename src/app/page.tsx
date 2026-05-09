@@ -35,13 +35,12 @@ export default function Home() {
               >
                 회원가입 시작하기
               </Link>
-              <button
-                type="button"
-                className="inline-flex h-12 cursor-not-allowed items-center justify-center rounded-md border border-slate-200 bg-white px-6 text-base font-semibold text-slate-400"
-                disabled
+              <Link
+                href="/login"
+                className="inline-flex h-12 items-center justify-center rounded-md border border-slate-200 bg-white px-6 text-base font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
               >
                 로그인
-              </button>
+              </Link>
             </div>
           </div>
 

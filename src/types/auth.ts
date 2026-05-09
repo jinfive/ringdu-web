@@ -1,4 +1,7 @@
 export type SignupRole = "TEACHER" | "PARENT" | "STUDENT";
+export type UserRole = "ADMIN" | "OWNER" | "DESK" | SignupRole;
+export type UserStatus = "ACTIVE" | "INACTIVE";
+export type AuthProvider = "LOCAL" | "KAKAO" | "NAVER" | "GOOGLE";
 
 export type SignupRequest = {
   email: string;
@@ -13,4 +16,32 @@ export type SignupResponse = {
   email: string;
   name: string;
   role: SignupRole;
+};
+
+export type LoginRequest = {
+  email: string;
+  password: string;
+};
+
+export type AuthUser = {
+  userId: number;
+  email: string;
+  name: string;
+  role: UserRole;
+};
+
+export type LoginResponse = AuthUser & {
+  accessToken: string;
+  tokenType: "Bearer";
+};
+
+export type TokenRefreshResponse = {
+  accessToken: string;
+  tokenType: "Bearer";
+};
+
+export type MeResponse = AuthUser & {
+  phone: string | null;
+  status: UserStatus;
+  provider: AuthProvider;
 };
