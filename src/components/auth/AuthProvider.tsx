@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -34,8 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const refreshPromiseRef = useRef<Promise<boolean> | null>(null);
+  const sessionVersionRef = useRef(0);
 
   const login = useCallback(async (payload: LoginRequest) => {
+    sessionVersionRef.current += 1;
     setIsLoading(true);
     try {
       const response = await loginRequest(payload);
@@ -46,39 +50,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshSession = useCallback(async () => {
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
+    }
+
+    const sessionVersion = sessionVersionRef.current;
+    setIsLoading(true);
+
+    refreshPromiseRef.current = (async () => {
+      try {
+        const response = await refreshAccessToken();
+        const me = await getMe(response.accessToken);
+        if (sessionVersionRef.current !== sessionVersion) {
+          return false;
+        }
+        setAccessToken(response.accessToken);
+        setUser(toAuthUser(me));
+        return true;
+      } catch {
+        if (sessionVersionRef.current === sessionVersion) {
+          setAccessToken(null);
+          setUser(null);
+        }
+        return false;
+      } finally {
+        if (sessionVersionRef.current === sessionVersion) {
+          setIsLoading(false);
+        }
+        refreshPromiseRef.current = null;
+      }
+    })();
+
+    return refreshPromiseRef.current;
+  }, []);
+
   const loadMe = useCallback(async () => {
     if (!accessToken) {
+      const restored = await refreshSession();
+      if (!restored) {
+        return null;
+      }
+    }
+
+    const currentAccessToken = accessToken;
+    if (!currentAccessToken) {
       return null;
     }
 
     setIsLoading(true);
     try {
-      const response = await getMe(accessToken);
+      const response = await getMe(currentAccessToken);
       setUser(toAuthUser(response));
       return response;
     } finally {
       setIsLoading(false);
     }
-  }, [accessToken]);
-
-  const refreshSession = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const response = await refreshAccessToken();
-      setAccessToken(response.accessToken);
-      const me = await getMe(response.accessToken);
-      setUser(toAuthUser(me));
-      return true;
-    } catch {
-      setAccessToken(null);
-      setUser(null);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  }, [accessToken, refreshSession]);
 
   const logout = useCallback(async () => {
+    sessionVersionRef.current += 1;
     setIsLoading(true);
     try {
       await logoutRequest();
@@ -90,36 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function restoreSession() {
-      try {
-        const response = await refreshAccessToken();
-        const me = await getMe(response.accessToken);
-        if (!isMounted) {
-          return;
-        }
-        setAccessToken(response.accessToken);
-        setUser(toAuthUser(me));
-      } catch {
-        if (!isMounted) {
-          return;
-        }
-        setAccessToken(null);
-        setUser(null);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void restoreSession();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    void Promise.resolve().then(() => refreshSession());
+  }, [refreshSession]);
 
   const value = useMemo<AuthState>(
     () => ({
