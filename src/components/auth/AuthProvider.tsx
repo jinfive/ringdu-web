@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -32,7 +33,7 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const login = useCallback(async (payload: LoginRequest) => {
     setIsLoading(true);
@@ -86,6 +87,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setIsLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function restoreSession() {
+      try {
+        const response = await refreshAccessToken();
+        const me = await getMe(response.accessToken);
+        if (!isMounted) {
+          return;
+        }
+        setAccessToken(response.accessToken);
+        setUser(toAuthUser(me));
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+        setAccessToken(null);
+        setUser(null);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void restoreSession();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const value = useMemo<AuthState>(
