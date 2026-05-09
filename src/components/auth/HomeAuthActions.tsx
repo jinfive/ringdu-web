@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 
 type HomeAuthActionsProps = {
@@ -9,12 +8,10 @@ type HomeAuthActionsProps = {
 };
 
 export function HomeAuthActions({ variant }: HomeAuthActionsProps) {
-  const router = useRouter();
   const { user, isAuthenticated, isLoading, logout } = useAuth();
 
   const handleLogout = async () => {
     await logout();
-    router.push("/");
   };
 
   if (variant === "nav") {

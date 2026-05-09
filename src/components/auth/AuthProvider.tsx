@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   getMe,
   login as loginRequest,
@@ -32,6 +33,7 @@ type AuthState = {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -113,12 +115,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       await logoutRequest();
+    } catch {
+      // Client state must be cleared even if the server session is already gone.
     } finally {
       setAccessToken(null);
       setUser(null);
       setIsLoading(false);
+      router.push("/login");
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     void Promise.resolve().then(() => refreshSession());
