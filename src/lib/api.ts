@@ -1,4 +1,13 @@
-import type { SignupRequest, SignupResponse } from "@/types/auth";
+import type {
+  AcademyAccountResponse,
+  CreateAcademyAccountRequest,
+  LoginRequest,
+  LoginResponse,
+  MeResponse,
+  SignupRequest,
+  SignupResponse,
+  TokenRefreshResponse,
+} from "@/types/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
 
@@ -8,16 +17,79 @@ type ApiResponse<T> = {
   data: T;
 };
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status?: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 export async function signup(payload: SignupRequest): Promise<SignupResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+  return request<SignupResponse>("/api/auth/signup", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function login(payload: LoginRequest): Promise<LoginResponse> {
+  return request<LoginResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    credentials: "include",
+  });
+}
+
+export async function refreshAccessToken(): Promise<TokenRefreshResponse> {
+  return request<TokenRefreshResponse>("/api/auth/refresh", {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
+export async function getMe(accessToken: string): Promise<MeResponse> {
+  return request<MeResponse>("/api/auth/me", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function logout(): Promise<void> {
+  await request<null>("/api/auth/logout", {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
+export async function createAcademyAccount(
+  payload: CreateAcademyAccountRequest,
+  accessToken: string,
+): Promise<AcademyAccountResponse> {
+  return request<AcademyAccountResponse>("/api/admin/academy-accounts", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify(payload),
   });
+}
 
-  let body: ApiResponse<SignupResponse> | SignupResponse | null = null;
+async function request<T>(path: string, init: RequestInit): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (init.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers,
+  });
+
+  let body: ApiResponse<T> | T | null = null;
 
   try {
     body = await response.json();
@@ -26,28 +98,38 @@ export async function signup(payload: SignupRequest): Promise<SignupResponse> {
   }
 
   if (!response.ok) {
-    throw new Error(getErrorMessage(body));
+    throw new ApiError(getErrorMessage(body), response.status);
   }
 
-  if (body && "success" in body) {
+  if (isApiResponse<T>(body)) {
     if (!body.success) {
-      throw new Error(body.message || "회원가입에 실패했습니다.");
+      throw new ApiError(body.message || "요청을 처리하지 못했습니다.", response.status);
     }
 
     return body.data;
   }
 
   if (body) {
-    return body as SignupResponse;
+    return body as T;
   }
 
-  throw new Error("회원가입 응답을 확인하지 못했습니다.");
+  return null as T;
 }
 
-function getErrorMessage(body: ApiResponse<unknown> | SignupResponse | null) {
-  if (body && "message" in body && typeof body.message === "string" && body.message) {
+function getErrorMessage(body: ApiResponse<unknown> | unknown | null) {
+  if (
+    body &&
+    typeof body === "object" &&
+    "message" in body &&
+    typeof body.message === "string" &&
+    body.message
+  ) {
     return body.message;
   }
 
-  return "회원가입 요청에 실패했습니다. 백엔드 서버가 실행 중인지 확인해 주세요.";
+  return "요청을 처리하지 못했습니다. 백엔드 서버가 실행 중인지 확인해 주세요.";
+}
+
+function isApiResponse<T>(body: ApiResponse<T> | T | null): body is ApiResponse<T> {
+  return Boolean(body && typeof body === "object" && "success" in body);
 }

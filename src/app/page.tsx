@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HomeAuthActions } from "@/components/auth/HomeAuthActions";
 
 export default function Home() {
   return (
@@ -8,12 +9,7 @@ export default function Home() {
           <Link href="/" className="text-2xl font-bold tracking-tight text-blue-700">
             Ringdu
           </Link>
-          <Link
-            href="/signup"
-            className="rounded-md border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
-          >
-            회원가입
-          </Link>
+          <HomeAuthActions variant="nav" />
         </nav>
 
         <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
@@ -28,21 +24,7 @@ export default function Home() {
               Ringdu는 학생, 시간표, 출석, 숙제, 청구서와 납부 상태를 한 곳에서
               안정적으로 관리하기 위한 학원 관리 웹 서비스입니다.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/signup"
-                className="inline-flex h-12 items-center justify-center rounded-md bg-blue-700 px-6 text-base font-semibold text-white shadow-sm transition hover:bg-blue-800"
-              >
-                회원가입 시작하기
-              </Link>
-              <button
-                type="button"
-                className="inline-flex h-12 cursor-not-allowed items-center justify-center rounded-md border border-slate-200 bg-white px-6 text-base font-semibold text-slate-400"
-                disabled
-              >
-                로그인
-              </button>
-            </div>
+            <HomeAuthActions variant="hero" />
           </div>
 
           <div className="rounded-lg border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/60">
