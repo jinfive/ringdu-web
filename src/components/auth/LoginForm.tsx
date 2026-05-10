@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import type { ReactNode } from "react";
 import { ApiError } from "@/lib/api";
+import { getRoleHomePath } from "@/lib/roles";
 import { loginSchema, type LoginFormValues } from "@/lib/validations/auth";
 import { useAuth } from "./AuthProvider";
 import { inputClassName } from "./SignupForm";
@@ -31,8 +32,8 @@ export function LoginForm() {
     setErrorMessage("");
 
     try {
-      await login(values);
-      router.push("/");
+      const user = await login(values);
+      router.push(getRoleHomePath(user.role));
     } catch (error) {
       setErrorMessage(getLoginErrorMessage(error));
     }

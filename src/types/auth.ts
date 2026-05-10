@@ -1,5 +1,5 @@
 export type SignupRole = "TEACHER" | "PARENT" | "STUDENT";
-export type UserRole = "ADMIN" | "OWNER" | "DESK" | SignupRole;
+export type UserRole = "ACADEMY" | SignupRole | "ADMIN";
 export type UserStatus = "ACTIVE" | "INACTIVE";
 export type AuthProvider = "LOCAL" | "KAKAO" | "NAVER" | "GOOGLE";
 
@@ -44,4 +44,21 @@ export type MeResponse = AuthUser & {
   phone: string | null;
   status: UserStatus;
   provider: AuthProvider;
+};
+
+export type CreateAcademyAccountRequest = {
+  email: string;
+  password: string;
+  name: string;
+  phone: string;
+};
+
+export type AcademyAccountResponse = {
+  userId: number;
+  email: string;
+  name: string;
+  phone: string;
+  role: "ACADEMY";
+  status: UserStatus;
+  createdAt: string;
 };

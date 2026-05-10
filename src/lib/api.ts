@@ -1,4 +1,6 @@
 import type {
+  AcademyAccountResponse,
+  CreateAcademyAccountRequest,
   LoginRequest,
   LoginResponse,
   MeResponse,
@@ -60,6 +62,19 @@ export async function logout(): Promise<void> {
   await request<null>("/api/auth/logout", {
     method: "POST",
     credentials: "include",
+  });
+}
+
+export async function createAcademyAccount(
+  payload: CreateAcademyAccountRequest,
+  accessToken: string,
+): Promise<AcademyAccountResponse> {
+  return request<AcademyAccountResponse>("/api/admin/academy-accounts", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
   });
 }
 

@@ -24,7 +24,7 @@ type AuthState = {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (payload: LoginRequest) => Promise<void>;
+  login: (payload: LoginRequest) => Promise<AuthUser>;
   refreshSession: () => Promise<boolean>;
   loadMe: () => Promise<MeResponse | null>;
   logout: () => Promise<void>;
@@ -45,8 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const response = await loginRequest(payload);
+      const authUser = toAuthUser(response);
       setAccessToken(response.accessToken);
-      setUser(toAuthUser(response));
+      setUser(authUser);
+      return authUser;
     } finally {
       setIsLoading(false);
     }
