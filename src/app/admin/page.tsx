@@ -7,7 +7,7 @@ export default function AdminPage() {
       title="관리자 대시보드"
       description="Ringdu 플랫폼 운영과 학원 계정 관리를 위한 관리자 화면입니다."
     >
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <Link
           href="/admin/academy-accounts"
           className="rounded-lg border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/60 transition hover:border-blue-300 hover:bg-blue-50"
@@ -26,6 +26,16 @@ export default function AdminPage() {
           <h2 className="mt-3 text-xl font-bold text-slate-950">학원 계정 생성</h2>
           <p className="mt-3 text-sm leading-6 text-slate-600">
             새 ACADEMY 계정을 생성합니다. 실제 학원 정보 관리는 다음 단계에서 다룹니다.
+          </p>
+        </Link>
+        <Link
+          href="/admin/academy-signup-applications"
+          className="rounded-lg border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/60 transition hover:border-blue-300 hover:bg-blue-50"
+        >
+          <p className="text-sm font-semibold uppercase text-blue-600">Approval</p>
+          <h2 className="mt-3 text-xl font-bold text-slate-950">학원 가입 승인 대기</h2>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            직접 가입 신청한 학원 계정을 검토하고 승인합니다.
           </p>
         </Link>
       </div>

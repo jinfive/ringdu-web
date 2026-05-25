@@ -31,6 +31,7 @@ export function SignupForm({
     defaultValues: {
       email: "",
       password: "",
+      passwordConfirm: "",
       name: "",
       phone: "",
     },
@@ -41,10 +42,11 @@ export function SignupForm({
     setErrorMessage("");
 
     try {
-      const { email, password, name, phone } = values;
+      const { email, password, passwordConfirm, name, phone } = values;
       const response = await signup({
         email,
         password,
+        passwordConfirm,
         name,
         phone,
         role,
@@ -89,6 +91,16 @@ export function SignupForm({
           autoComplete="new-password"
           placeholder="8자 이상 입력"
           {...register("password")}
+        />
+      </Field>
+
+      <Field label="비밀번호 확인" error={getErrorMessage(errors.passwordConfirm)}>
+        <input
+          className={inputClassName}
+          type="password"
+          autoComplete="new-password"
+          placeholder="비밀번호 다시 입력"
+          {...register("passwordConfirm")}
         />
       </Field>
 
