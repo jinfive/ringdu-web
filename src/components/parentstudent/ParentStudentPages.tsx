@@ -23,6 +23,7 @@ import type {
 
 type FamilyRole = "PARENT" | "STUDENT";
 type PageMode = "dashboard" | "invitations";
+type InvitationTab = "connected" | "received" | "sent";
 
 type PageConfig = {
   role: FamilyRole;
@@ -114,9 +115,7 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
 
         <ConnectionManagementCard config={config} />
 
-        <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-          <InvitationForm config={config} state={state} compact />
-
+        <section className="grid gap-6 xl:grid-cols-2">
           <FamilyCard>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -134,22 +133,8 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
               emptyTitle={config.receivedEmptyTitle}
             />
           </FamilyCard>
-        </section>
 
-        <section className="grid gap-6 xl:grid-cols-2">
           <RelationsPanel config={config} state={state} />
-          <FamilyCard>
-            <h2 className="text-lg font-bold text-slate-950">보낸 초대장</h2>
-            <InvitationList
-              config={config}
-              invitations={sent.slice(0, 3)}
-              isLoading={state.isLoading}
-              processingId={state.processingId}
-              onProcess={state.processInvitation}
-              emptyTitle={config.sentEmptyTitle}
-              readonly
-            />
-          </FamilyCard>
         </section>
       </div>
     </FamilyShell>
@@ -161,6 +146,8 @@ export function ParentStudentInvitationsPage({ role }: { role: FamilyRole }) {
   const state = useParentStudentState(config);
   const received = state.invitations.filter((invitation) => invitation.direction === "RECEIVED");
   const sent = state.invitations.filter((invitation) => invitation.direction === "SENT");
+  const [activeTab, setActiveTab] = useState<InvitationTab>("connected");
+  const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
 
   return (
     <FamilyShell config={config} mode="invitations">
@@ -168,11 +155,34 @@ export function ParentStudentInvitationsPage({ role }: { role: FamilyRole }) {
         {state.errorMessage ? <AlertMessage>{state.errorMessage}</AlertMessage> : null}
         {state.successMessage ? <SuccessMessage>{state.successMessage}</SuccessMessage> : null}
 
-        <InvitationForm config={config} state={state} />
+        <div className="grid gap-4 md:grid-cols-3">
+          <SummaryCard label={config.connectedTitle} value={`${state.relations.length}명`} />
+          <SummaryCard label="받은 요청" value={`${received.length}건`} />
+          <SummaryCard label="보낸 요청" value={`${sent.length}건`} />
+        </div>
 
-        <section className="grid gap-6 xl:grid-cols-2">
+        <FamilyCard>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">{config.managementTitle}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{config.managementDescription}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsRequestFormOpen(true)}
+              className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+            >
+              {config.role === "PARENT" ? "자녀에게 요청 보내기" : "보호자에게 요청 보내기"}
+            </button>
+          </div>
+        </FamilyCard>
+
+        <TabNav activeTab={activeTab} onChange={setActiveTab} />
+
+        {activeTab === "connected" ? <RelationsPanel config={config} state={state} /> : null}
+        {activeTab === "received" ? (
           <FamilyCard>
-            <h2 className="text-lg font-bold text-slate-950">받은 초대장</h2>
+            <h2 className="text-lg font-bold text-slate-950">받은 요청</h2>
             <InvitationList
               config={config}
               invitations={received}
@@ -182,9 +192,10 @@ export function ParentStudentInvitationsPage({ role }: { role: FamilyRole }) {
               emptyTitle={config.receivedEmptyTitle}
             />
           </FamilyCard>
-
+        ) : null}
+        {activeTab === "sent" ? (
           <FamilyCard>
-            <h2 className="text-lg font-bold text-slate-950">보낸 초대장</h2>
+            <h2 className="text-lg font-bold text-slate-950">보낸 요청</h2>
             <InvitationList
               config={config}
               invitations={sent}
@@ -195,9 +206,11 @@ export function ParentStudentInvitationsPage({ role }: { role: FamilyRole }) {
               readonly
             />
           </FamilyCard>
-        </section>
+        ) : null}
 
-        <RelationsPanel config={config} state={state} />
+        {isRequestFormOpen ? (
+          <RequestFormModal config={config} state={state} onClose={() => setIsRequestFormOpen(false)} />
+        ) : null}
       </div>
     </FamilyShell>
   );
@@ -379,6 +392,9 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
                   <h1 className="mt-1 text-2xl font-bold text-slate-950">
                     {mode === "dashboard" ? config.title : config.invitationTitle}
                   </h1>
+                  {mode === "invitations" ? (
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{config.managementDescription}</p>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="text-sm font-semibold text-slate-600">{user?.name ?? "사용자"}님</span>
@@ -416,15 +432,17 @@ function InvitationForm({
   config,
   state,
   compact = false,
+  framed = true,
 }: {
   config: PageConfig;
   state: ReturnType<typeof useParentStudentState>;
   compact?: boolean;
+  framed?: boolean;
 }) {
-  return (
-    <FamilyCard>
-      <h2 className="text-lg font-bold text-slate-950">{config.sendTitle}</h2>
-      <form className="mt-4 grid gap-4" onSubmit={state.submitInvitation}>
+  const form = (
+    <>
+      {framed ? <h2 className="text-lg font-bold text-slate-950">{config.sendTitle}</h2> : null}
+      <form className={framed ? "mt-4 grid gap-4" : "grid gap-4"} onSubmit={state.submitInvitation}>
         <div className={`grid gap-4 ${compact ? "" : "md:grid-cols-2"}`}>
           <TextField label={config.emailLabel} value={state.email} onChange={state.setEmail} required />
           <TextField label={config.phoneLabel} value={state.phone} onChange={state.setPhone} required />
@@ -447,7 +465,78 @@ function InvitationForm({
           </button>
         </div>
       </form>
-    </FamilyCard>
+    </>
+  );
+
+  return framed ? <FamilyCard>{form}</FamilyCard> : form;
+}
+
+function RequestFormModal({
+  config,
+  state,
+  onClose,
+}: {
+  config: PageConfig;
+  state: ReturnType<typeof useParentStudentState>;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-end bg-slate-950/40 px-4 py-4 sm:items-center sm:justify-center">
+      <div className="w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl shadow-slate-900/20">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-950">{config.sendTitle}</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              {config.role === "PARENT"
+                ? "자녀 이메일과 전화번호를 입력해 연결 요청을 보냅니다."
+                : "보호자 이메일과 전화번호를 입력해 연결 요청을 보냅니다."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+            aria-label="닫기"
+          >
+            X
+          </button>
+        </div>
+        <div className="mt-5">
+          <InvitationForm config={config} state={state} framed={false} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TabNav({
+  activeTab,
+  onChange,
+}: {
+  activeTab: InvitationTab;
+  onChange: (tab: InvitationTab) => void;
+}) {
+  const tabs: Array<{ id: InvitationTab; label: string }> = [
+    { id: "connected", label: "연결됨" },
+    { id: "received", label: "받은 요청" },
+    { id: "sent", label: "보낸 요청" },
+  ];
+
+  return (
+    <div className="flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => onChange(tab.id)}
+          className={`min-h-10 flex-1 rounded-md px-3 text-sm font-semibold transition ${
+            activeTab === tab.id ? "bg-blue-700 text-white shadow-sm" : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
