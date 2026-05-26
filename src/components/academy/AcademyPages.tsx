@@ -2,9 +2,22 @@
 
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
-import { ApiError, getMyAcademy, updateMyAcademy } from "@/lib/api";
+import {
+  ApiError,
+  createTeacherInvitation,
+  getAcademyTeacherInvitations,
+  getAcademyTeachers,
+  getMyAcademy,
+  updateMyAcademy,
+} from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
-import type { AcademyUpdateRequest } from "@/types/auth";
+import type {
+  AcademyTeacherResponse,
+  AcademyUpdateRequest,
+  TeacherInvitationCreateRequest,
+  TeacherInvitationResponse,
+  TeacherInvitationStatus,
+} from "@/types/auth";
 import {
   AcademyCard,
   AcademyLinkButton,
@@ -84,30 +97,261 @@ export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
 }
 
 export function AcademyTeachersPage() {
+  const { accessToken } = useAuth();
+  const [teachers, setTeachers] = useState<AcademyTeacherResponse[]>([]);
+  const [invitations, setInvitations] = useState<TeacherInvitationResponse[]>([]);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    let isMounted = true;
+    void Promise.all([
+      getAcademyTeachers(accessToken),
+      getAcademyTeacherInvitations(accessToken),
+    ])
+      .then(([teacherResponses, invitationResponses]) => {
+        if (isMounted) {
+          setTeachers(teacherResponses);
+          setInvitations(invitationResponses);
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setErrorMessage(getTeacherInvitationErrorMessage(error));
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken]);
+
   return (
     <AcademyShell
       title="선생님 관리"
-      description="학원에 소속된 선생님을 관리합니다."
-      actions={<AcademyLinkButton href="/academy/teachers/new">선생님 등록</AcademyLinkButton>}
+      description="학원에 소속된 선생님과 보낸 초대장을 관리합니다."
+      actions={<AcademyLinkButton href="/academy/teachers/new">선생님 초대</AcademyLinkButton>}
     >
-      <EmptyState
-        title="아직 등록된 선생님이 없습니다."
-        description="선생님을 등록해 수업과 시간표를 관리해 보세요."
-        action={<AcademyLinkButton href="/academy/teachers/new">선생님 등록</AcademyLinkButton>}
-      />
+      <div className="space-y-6">
+        {errorMessage ? (
+          <p className="whitespace-pre-line rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+            {errorMessage}
+          </p>
+        ) : null}
+
+        <AcademyCard>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">소속 선생님</h2>
+              <p className="mt-1 text-sm text-slate-600">초대장을 수락한 선생님이 표시됩니다.</p>
+            </div>
+            <StatusBadge>0명</StatusBadge>
+          </div>
+          {isLoading ? (
+            <p className="mt-5 text-sm font-semibold text-slate-600">선생님 목록을 불러오고 있습니다.</p>
+          ) : null}
+
+          {!isLoading && teachers.length === 0 ? (
+            <div className="mt-5">
+              <EmptyState
+                title="아직 연결된 선생님이 없습니다."
+                description="선생님에게 초대장을 보내 학원에 연결해 보세요."
+                action={<AcademyLinkButton href="/academy/teachers/new">선생님 초대</AcademyLinkButton>}
+              />
+            </div>
+          ) : null}
+
+          {teachers.length > 0 ? (
+            <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
+              <div className="grid bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-500 md:grid-cols-[1fr_1.4fr_1fr_1fr_0.8fr]">
+                <span>이름</span>
+                <span>이메일</span>
+                <span>전화번호</span>
+                <span>연결일</span>
+                <span>상태</span>
+              </div>
+              {teachers.map((teacher) => (
+                <div
+                  key={teacher.teacherUserId}
+                  className="grid gap-2 border-t border-slate-200 px-4 py-4 text-sm text-slate-700 md:grid-cols-[1fr_1.4fr_1fr_1fr_0.8fr]"
+                >
+                  <span className="font-semibold text-slate-950">{teacher.name}</span>
+                  <span>{teacher.email}</span>
+                  <span>{teacher.phone ?? "-"}</span>
+                  <span>{formatDate(teacher.connectedAt)}</span>
+                  <span>{teacher.memberStatus === "ACTIVE" ? "활성" : "비활성"}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </AcademyCard>
+
+        <AcademyCard>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">보낸 초대장</h2>
+              <p className="mt-1 text-sm text-slate-600">초대 상태는 선생님 응답 후 갱신됩니다.</p>
+            </div>
+            <StatusBadge>{invitations.length}건</StatusBadge>
+          </div>
+
+          {invitations.length === 0 ? (
+            <div className="mt-5">
+              <EmptyState
+                title="보낸 초대장이 없습니다."
+                description="이메일과 전화번호를 입력해 초대장을 보내세요."
+                action={<AcademyLinkButton href="/academy/teachers/new">선생님 초대</AcademyLinkButton>}
+              />
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-3">
+              {invitations.map((invitation) => (
+                <div key={invitation.invitationId} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h3 className="font-bold text-slate-950">{invitation.teacherEmail}</h3>
+                      <p className="mt-1 text-sm text-slate-600">{invitation.teacherPhone}</p>
+                      <p className="mt-3 text-xs font-semibold text-slate-500">보낸 날짜 {formatDate(invitation.createdAt)}</p>
+                    </div>
+                    <StatusBadge>{getInvitationStatusLabel(invitation.status)}</StatusBadge>
+                  </div>
+                  {invitation.message ? (
+                    <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-700">{invitation.message}</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </AcademyCard>
+      </div>
     </AcademyShell>
   );
 }
 
 export function AcademyTeacherNewPage() {
+  const { accessToken } = useAuth();
+  const [form, setForm] = useState<TeacherInvitationCreateRequest>({
+    teacherEmail: "",
+    teacherPhone: "",
+    message: fallbackInvitationMessage(),
+  });
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+
+  useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    let isMounted = true;
+    void getMyAcademy(accessToken)
+      .then((academy) => {
+        if (isMounted) {
+          setForm((current) => ({
+            ...current,
+            message: defaultInvitationMessage(academy.name),
+          }));
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setForm((current) => ({
+            ...current,
+            message: fallbackInvitationMessage(),
+          }));
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!accessToken) {
+      setErrorMessage("초대장을 보내지 못했습니다.\n입력 내용을 확인한 뒤 다시 시도해 주세요.");
+      return;
+    }
+
+    setIsSending(true);
+    setSuccessMessage("");
+    setErrorMessage("");
+
+    try {
+      await createTeacherInvitation(form, accessToken);
+      setForm((current) => ({
+        teacherEmail: "",
+        teacherPhone: "",
+        message: current.message,
+      }));
+      setSuccessMessage("선생님 초대장을 보냈습니다.");
+    } catch (error) {
+      setErrorMessage(getTeacherInvitationErrorMessage(error));
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   return (
-    <AcademyShell title="선생님 등록" description="선생님 기본 정보와 담당 과목을 등록하는 화면입니다.">
+    <AcademyShell title="선생님 초대" description="선생님에게 초대장을 보내 학원에 연결하세요.">
       <AcademyCard>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {["이름", "이메일", "전화번호", "담당 과목", "담당 수업 수", "상태"].map((field) => (
-            <FieldPreview key={field} label={field} value="준비 중" />
-          ))}
-        </div>
+        {successMessage ? (
+          <p className="mb-5 rounded-md border border-green-100 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+            {successMessage}
+          </p>
+        ) : null}
+
+        {errorMessage ? (
+          <p className="mb-5 whitespace-pre-line rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+            {errorMessage}
+          </p>
+        ) : null}
+
+        <form className="grid gap-4" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <AcademyTextField
+              label="이메일"
+              value={form.teacherEmail}
+              onChange={(value) => setForm((current) => ({ ...current, teacherEmail: value }))}
+              required
+            />
+            <AcademyTextField
+              label="전화번호"
+              value={form.teacherPhone}
+              onChange={(value) => setForm((current) => ({ ...current, teacherPhone: value }))}
+              required
+            />
+          </div>
+          <label className="block">
+            <span className="text-sm font-bold text-slate-700">초대 메시지</span>
+            <textarea
+              value={form.message}
+              onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
+              className="mt-2 min-h-28 w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            />
+          </label>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={isSending}
+              className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {isSending ? "전송 중" : "초대장 보내기"}
+            </button>
+          </div>
+        </form>
       </AcademyCard>
     </AcademyShell>
   );
@@ -437,4 +681,44 @@ function getSettingsErrorMessage(error: unknown) {
   }
 
   return "학원 정보를 저장하지 못했습니다.\n입력 내용을 확인한 뒤 다시 시도해 주세요.";
+}
+
+function getTeacherInvitationErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+
+  return "초대장을 보내지 못했습니다.\n입력 내용을 확인한 뒤 다시 시도해 주세요.";
+}
+
+function getInvitationStatusLabel(status: TeacherInvitationStatus) {
+  const labels: Record<TeacherInvitationStatus, string> = {
+    PENDING: "대기",
+    ACCEPTED: "수락",
+    REJECTED: "거절",
+    EXPIRED: "만료",
+    CANCELED: "취소",
+  };
+
+  return labels[status];
+}
+
+function defaultInvitationMessage(academyName: string) {
+  return `${academyName}에서 선생님 초대장을 보냈습니다.\n초대를 수락하면 해당 학원의 선생님으로 연결됩니다.`;
+}
+
+function fallbackInvitationMessage() {
+  return "Ringdu에서 선생님 초대장을 보냈습니다.\n초대를 수락하면 해당 학원의 선생님으로 연결됩니다.";
+}
+
+function formatDate(value: string | null) {
+  if (!value) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
 }

@@ -6,6 +6,7 @@ import type {
   AcademySignupApprovalResponse,
   AcademySignupRequest,
   AcademySignupResponse,
+  AcademyTeacherResponse,
   AcademyUpdateRequest,
   CreateAcademyAccountRequest,
   LoginRequest,
@@ -13,6 +14,8 @@ import type {
   MeResponse,
   SignupRequest,
   SignupResponse,
+  TeacherInvitationCreateRequest,
+  TeacherInvitationResponse,
   TokenRefreshResponse,
 } from "@/types/auth";
 
@@ -146,6 +149,39 @@ export async function getAcademyDashboard(
   accessToken: string,
 ): Promise<AcademyDashboardResponse> {
   return request<AcademyDashboardResponse>("/api/academies/me/dashboard", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createTeacherInvitation(
+  payload: TeacherInvitationCreateRequest,
+  accessToken: string,
+): Promise<TeacherInvitationResponse> {
+  return request<TeacherInvitationResponse>("/api/academies/me/teacher-invitations", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAcademyTeacherInvitations(
+  accessToken: string,
+): Promise<TeacherInvitationResponse[]> {
+  return request<TeacherInvitationResponse[]>("/api/academies/me/teacher-invitations", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getAcademyTeachers(accessToken: string): Promise<AcademyTeacherResponse[]> {
+  return request<AcademyTeacherResponse[]>("/api/academies/me/teachers", {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,

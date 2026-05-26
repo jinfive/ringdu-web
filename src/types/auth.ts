@@ -154,3 +154,28 @@ export type AcademyDashboardResponse = {
   pendingConsultationCount: number;
   notifications: AcademyDashboardNotification[];
 };
+
+export type TeacherInvitationStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELED";
+
+export type TeacherInvitationCreateRequest = {
+  teacherEmail: string;
+  teacherPhone: string;
+  message: string;
+};
+
+export type TeacherInvitationResponse = TeacherInvitationCreateRequest & {
+  invitationId: number;
+  status: TeacherInvitationStatus;
+  createdAt: string;
+  respondedAt: string | null;
+  expiresAt: string | null;
+};
+
+export type AcademyTeacherResponse = {
+  teacherUserId: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  memberStatus: "ACTIVE" | "INACTIVE";
+  connectedAt: string;
+};

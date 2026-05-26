@@ -9,7 +9,7 @@ import { AcademyCard, AcademyLinkButton, AcademyShell, StatusBadge } from "./Aca
 
 const registrationActions = [
   { href: "/academy/students/new", label: "학생(부모) 등록" },
-  { href: "/academy/teachers/new", label: "선생님 등록" },
+  { href: "/academy/teachers/new", label: "선생님 초대" },
   { href: "/academy/consultations/new", label: "신규 상담 등록" },
   { href: "/academy/invoices", label: "청구서 생성" },
 ];
@@ -23,7 +23,7 @@ const managementMenus = [
   {
     href: "/academy/teachers",
     title: "선생님 관리",
-    description: "소속 선생님과 담당 과목, 담당 수업 상태를 관리합니다.",
+    description: "소속 선생님과 보낸 초대장 상태를 확인합니다.",
   },
   {
     href: "/academy/schedule",
