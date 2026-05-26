@@ -53,6 +53,10 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8081
 - 선생님 가입 페이지: `/signup/teacher`
 - 학부모 가입 페이지: `/signup/parent`
 - 학생 가입 페이지: `/signup/student`
+- 학부모 홈 대시보드: `/parent`
+- 학부모 연결 초대장: `/parent/invitations`
+- 학생 홈 대시보드: `/student`
+- 학생 연결 초대장: `/student/invitations`
 - 관리자 페이지: `/admin`
 - 학원 계정 생성 페이지: `/admin/academy-accounts/new`
 - 학원 가입 승인 대기 페이지: `/admin/academy-signup-applications`
@@ -76,6 +80,8 @@ GET /api/academies/me/dashboard
 ```
 
 `/academy`는 등록 학생, 등록 선생님, 이번 달 미납, 신규 상담 대기 요약과 미처리 알림을 표시합니다. `/academy/settings`에서는 학원명, 대표자명, 전화번호, 우편번호, 기본 주소, 상세 주소를 조회하고 수정합니다.
+
+부모-학생 연결은 선택 기능입니다. 부모는 학원 멤버가 아니며, 부모와 학생은 `/parent/invitations`, `/student/invitations`에서 양방향 연결 초대장을 보내고 수락 또는 거절합니다. 초대 수락 시 부모-학생 관계가 생성됩니다.
 
 백엔드 서버 주소를 변경해야 하는 경우 `.env.local`의 `NEXT_PUBLIC_API_BASE_URL` 값을 수정합니다.
 

@@ -190,3 +190,48 @@ export type AcademyTeacherResponse = {
   memberStatus: "ACTIVE" | "INACTIVE";
   connectedAt: string;
 };
+
+export type ParentStudentInvitationStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELED";
+export type ParentStudentInvitationDirection = "SENT" | "RECEIVED";
+
+export type ParentStudentInvitationResponse = {
+  invitationId: number;
+  requesterUserId: number;
+  requesterName: string;
+  receiverEmail: string;
+  receiverPhone: string;
+  requesterRole: "PARENT" | "STUDENT";
+  targetRole: "PARENT" | "STUDENT";
+  studentUserId: number | null;
+  parentUserId: number | null;
+  message: string | null;
+  status: ParentStudentInvitationStatus;
+  direction: ParentStudentInvitationDirection;
+  createdAt: string;
+  respondedAt: string | null;
+  expiresAt: string | null;
+};
+
+export type ParentStudentRelationResponse = {
+  relationId: number;
+  parentUserId: number;
+  parentName: string;
+  parentEmail: string;
+  studentUserId: number;
+  studentName: string;
+  studentEmail: string;
+  status: "ACTIVE" | "INACTIVE";
+  createdAt: string;
+};
+
+export type ParentStudentInvitationCreateRequest = {
+  studentEmail: string;
+  studentPhone: string;
+  message: string;
+};
+
+export type StudentParentInvitationCreateRequest = {
+  parentEmail: string;
+  parentPhone: string;
+  message: string;
+};

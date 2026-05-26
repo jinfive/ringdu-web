@@ -13,8 +13,12 @@ import type {
   LoginResponse,
   MeResponse,
   MyTeacherInvitationResponse,
+  ParentStudentInvitationCreateRequest,
+  ParentStudentInvitationResponse,
+  ParentStudentRelationResponse,
   SignupRequest,
   SignupResponse,
+  StudentParentInvitationCreateRequest,
   TeacherInvitationCreateRequest,
   TeacherInvitationResponse,
   TokenRefreshResponse,
@@ -218,6 +222,92 @@ export async function rejectTeacherInvitation(
   accessToken: string,
 ): Promise<MyTeacherInvitationResponse> {
   return request<MyTeacherInvitationResponse>(`/api/teacher/invitations/${invitationId}/reject`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createParentStudentInvitation(
+  payload: ParentStudentInvitationCreateRequest,
+  accessToken: string,
+): Promise<ParentStudentInvitationResponse> {
+  return request<ParentStudentInvitationResponse>("/api/parent/student-invitations", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function createStudentParentInvitation(
+  payload: StudentParentInvitationCreateRequest,
+  accessToken: string,
+): Promise<ParentStudentInvitationResponse> {
+  return request<ParentStudentInvitationResponse>("/api/student/parent-invitations", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getParentInvitations(accessToken: string): Promise<ParentStudentInvitationResponse[]> {
+  return request<ParentStudentInvitationResponse[]>("/api/parent/invitations", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getStudentInvitations(accessToken: string): Promise<ParentStudentInvitationResponse[]> {
+  return request<ParentStudentInvitationResponse[]>("/api/student/invitations", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getParentStudents(accessToken: string): Promise<ParentStudentRelationResponse[]> {
+  return request<ParentStudentRelationResponse[]>("/api/parent/students", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getStudentParents(accessToken: string): Promise<ParentStudentRelationResponse[]> {
+  return request<ParentStudentRelationResponse[]>("/api/student/parents", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function acceptParentStudentInvitation(
+  invitationId: number,
+  accessToken: string,
+): Promise<ParentStudentInvitationResponse> {
+  return request<ParentStudentInvitationResponse>(`/api/parent-student-invitations/${invitationId}/accept`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function rejectParentStudentInvitation(
+  invitationId: number,
+  accessToken: string,
+): Promise<ParentStudentInvitationResponse> {
+  return request<ParentStudentInvitationResponse>(`/api/parent-student-invitations/${invitationId}/reject`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
