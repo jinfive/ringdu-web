@@ -41,11 +41,18 @@ ADMIN
 - 운영 환경에서는 기본 비밀번호를 그대로 사용하면 안 됨
 
 ACADEMY
-- 일반 회원가입 불가
-- ADMIN이 /admin/academy-accounts/new 화면에서 생성
+- `/signup/academy`에서 학원 가입 신청 가능
+- 가입 직후 승인 대기 상태이며 바로 로그인하지 않음
+- ADMIN이 `/admin/academy-signup-applications`에서 승인하면 로그인 가능
+- 승인 시 백엔드에서 실제 Academy 데이터가 생성되고 ACADEMY User와 1:1로 연결됨
+- `/academy`는 `/api/academies/me/dashboard`의 운영 요약과 알림을 표시함
+- `/academy/settings`는 `/api/academies/me`로 학원 정보를 조회/수정함
+- ADMIN 직접 학원 계정 생성 화면(`/admin/academy-accounts/new`)은 운영 예외 기능으로 유지
 
 TEACHER/PARENT/STUDENT
 - 일반 회원가입 가능
+- 모든 회원가입 폼은 이메일 중복 오류를 사용자 친화적으로 표시하고 비밀번호 확인을 검증
+- 주민등록번호는 어떤 화면에서도 수집하지 않음
 ```
 
 ## 3. 역할별 UX 기준
@@ -66,6 +73,40 @@ TEACHER/PARENT/STUDENT
 공지 관리
 청구서/수납 관리
 학생 상담 기록 관리
+```
+
+`/academy` 홈은 학원 운영자가 들어왔을 때 보는 대시보드다. 대시보드는 모든 기능을 처리하는 화면이 아니라 현황 확인과 주요 메뉴 진입을 중심으로 구성한다.
+
+대시보드 구성:
+
+```txt
+운영 요약: 등록 학생, 등록 선생님, 이번 달 미납, 신규 상담 대기
+미처리 알림: 신규 상담, 부모-학생 연결 요청, 선생님 연결 요청, 미납 수강료, 청구서 미발송
+등록: 학생(부모) 등록, 선생님 등록, 신규 상담 등록, 청구서 생성
+주요 메뉴: 학생 관리, 선생님 관리, 시간표 관리, 신규 상담, 청구서/수납, 출석 현황, 학원 설정
+```
+
+`운영 클래스`, `오늘 출석 현황`, `출석 승인 대기`는 학원 홈 요약에서 제외한다. 출석 승인과 반려는 선생님 화면의 책임이고, 학원 계정은 출석 처리 결과를 조회하는 흐름으로 설계한다.
+
+클래스 관리는 독립 메뉴로 두지 않는다. 시간표 관리에서 특정 수업을 클릭해 `/academy/schedule/[classId]`로 들어가고, 그 상세 화면에서 수강 학생, 시간표, 출석 기록, 숙제, 공지를 관리한다.
+
+학원 운영 경로:
+
+```txt
+/academy
+/academy/students
+/academy/students/new
+/academy/students/[studentId]
+/academy/teachers
+/academy/teachers/new
+/academy/schedule
+/academy/schedule/new
+/academy/schedule/[classId]
+/academy/consultations
+/academy/consultations/new
+/academy/invoices
+/academy/attendance
+/academy/settings
 ```
 
 ### TEACHER / 선생
@@ -144,6 +185,15 @@ ADMIN은 학원 내부 관리자가 아니라 Ringdu 플랫폼 운영자다.
 부모는 부모 공개용 상담 내용만 확인한다.
 ```
 
+프론트 UX에서는 상담을 다음처럼 분리한다.
+
+```txt
+신규 상담: /academy/consultations
+재원생 상담: /academy/students/[studentId] 안의 재원생 상담 탭
+```
+
+신규 상담은 아직 등록되지 않은 학생 또는 등록 전 문의를 관리한다. 재원생 상담은 학생 상세 안에서 출석, 청구서, 수강 정보와 함께 확인할 수 있게 한다.
+
 공개 범위:
 
 ```txt
@@ -178,6 +228,8 @@ ADMIN은 학원 내부 관리자가 아니라 Ringdu 플랫폼 운영자다.
 ```
 
 QR, 위치 인증, Wi-Fi 인증은 MVP에서 제외하고 후순위 확장 기능으로 둔다.
+
+학원 계정의 `/academy/attendance` 화면은 출석 현황 조회 전용이다. 클래스별 출석 기록, 학생별 출석 기록, 지각/결석 목록, 기간 필터를 제공하는 방향으로 설계한다. 학원 화면에는 출석 승인, 출석 승인 대기, 출석 반려 같은 처리 액션을 두지 않는다.
 
 ## 6. 청구서/수납 UX
 

@@ -39,12 +39,23 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8081
 
 - 메인 페이지: `/`
 - 로그인 페이지: `/login`
+- 학원 홈 대시보드: `/academy`
+- 학생 관리: `/academy/students`
+- 학생(부모) 등록: `/academy/students/new`
+- 선생님 관리: `/academy/teachers`
+- 시간표 관리: `/academy/schedule`
+- 신규 상담: `/academy/consultations`
+- 청구서/수납: `/academy/invoices`
+- 출석 현황: `/academy/attendance`
+- 학원 설정: `/academy/settings`
 - 회원가입 유형 선택 페이지: `/signup`
+- 학원 가입 신청 페이지: `/signup/academy`
 - 선생님 가입 페이지: `/signup/teacher`
 - 학부모 가입 페이지: `/signup/parent`
 - 학생 가입 페이지: `/signup/student`
 - 관리자 페이지: `/admin`
 - 학원 계정 생성 페이지: `/admin/academy-accounts/new`
+- 학원 가입 승인 대기 페이지: `/admin/academy-signup-applications`
 - 역할 UX 기획: `docs/product-specs/role-based-ux-plan.md`
 
 ## 백엔드 API 설정
@@ -53,7 +64,18 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8081
 
 ```text
 POST /api/auth/signup
+POST /api/auth/signup/academy
 ```
+
+학원 운영 화면은 아래 Academy API와 연결됩니다.
+
+```text
+GET /api/academies/me
+PUT /api/academies/me
+GET /api/academies/me/dashboard
+```
+
+`/academy`는 등록 학생, 등록 선생님, 이번 달 미납, 신규 상담 대기 요약과 미처리 알림을 표시합니다. `/academy/settings`에서는 학원명, 대표자명, 전화번호, 우편번호, 기본 주소, 상세 주소를 조회하고 수정합니다.
 
 백엔드 서버 주소를 변경해야 하는 경우 `.env.local`의 `NEXT_PUBLIC_API_BASE_URL` 값을 수정합니다.
 

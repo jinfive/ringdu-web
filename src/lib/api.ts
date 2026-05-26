@@ -1,5 +1,12 @@
 import type {
   AcademyAccountResponse,
+  AcademyDashboardResponse,
+  AcademyResponse,
+  AcademySignupApplication,
+  AcademySignupApprovalResponse,
+  AcademySignupRequest,
+  AcademySignupResponse,
+  AcademyUpdateRequest,
   CreateAcademyAccountRequest,
   LoginRequest,
   LoginResponse,
@@ -29,6 +36,15 @@ export class ApiError extends Error {
 
 export async function signup(payload: SignupRequest): Promise<SignupResponse> {
   return request<SignupResponse>("/api/auth/signup", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function requestAcademySignup(
+  payload: AcademySignupRequest,
+): Promise<AcademySignupResponse> {
+  return request<AcademySignupResponse>("/api/auth/signup/academy", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -75,6 +91,65 @@ export async function createAcademyAccount(
       Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export async function getAcademySignupApplications(
+  accessToken: string,
+): Promise<AcademySignupApplication[]> {
+  return request<AcademySignupApplication[]>("/api/admin/academy-signup-applications", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function approveAcademySignupApplication(
+  applicationId: number,
+  accessToken: string,
+): Promise<AcademySignupApprovalResponse> {
+  return request<AcademySignupApprovalResponse>(
+    `/api/admin/academy-signup-applications/${applicationId}/approve`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+}
+
+export async function getMyAcademy(accessToken: string): Promise<AcademyResponse> {
+  return request<AcademyResponse>("/api/academies/me", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateMyAcademy(
+  payload: AcademyUpdateRequest,
+  accessToken: string,
+): Promise<AcademyResponse> {
+  return request<AcademyResponse>("/api/academies/me", {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAcademyDashboard(
+  accessToken: string,
+): Promise<AcademyDashboardResponse> {
+  return request<AcademyDashboardResponse>("/api/academies/me/dashboard", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
   });
 }
 

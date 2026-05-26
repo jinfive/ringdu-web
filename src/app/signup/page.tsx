@@ -3,6 +3,11 @@ import { SignupTypeCard } from "@/components/auth/SignupTypeCard";
 
 const signupTypes = [
   {
+    title: "학원 가입 신청",
+    description: "관리자 승인 후 학원 계정으로 사용할 수 있습니다.",
+    href: "/signup/academy",
+  },
+  {
     title: "선생님 가입",
     description: "학원 수업, 출석, 숙제를 관리하기 위한 선생님 계정입니다.",
     href: "/signup/teacher",
@@ -46,7 +51,7 @@ export default function SignupPage() {
               </p>
             </div>
 
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
+            <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {signupTypes.map((type) => (
                 <SignupTypeCard key={type.href} {...type} />
               ))}
