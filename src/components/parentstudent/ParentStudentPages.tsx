@@ -31,6 +31,9 @@ type PageConfig = {
   title: string;
   invitationTitle: string;
   sendTitle: string;
+  managementTitle: string;
+  managementDescription: string;
+  managementButtonLabel: string;
   sentMessage: string;
   emailLabel: string;
   phoneLabel: string;
@@ -48,8 +51,11 @@ const configs: Record<FamilyRole, PageConfig> = {
     homePath: "/parent",
     invitationsPath: "/parent/invitations",
     title: "학부모 홈",
-    invitationTitle: "자녀 연결 초대",
-    sendTitle: "자녀 연결 초대 보내기",
+    invitationTitle: "자녀 연결",
+    sendTitle: "자녀에게 연결 요청 보내기",
+    managementTitle: "자녀 연결",
+    managementDescription: "자녀와 연결하면 출석, 시간표, 청구 정보를 확인할 수 있습니다.",
+    managementButtonLabel: "자녀 연결 관리",
     sentMessage: "자녀 연결 요청을 보냈습니다.",
     emailLabel: "학생 이메일",
     phoneLabel: "학생 전화번호",
@@ -65,8 +71,11 @@ const configs: Record<FamilyRole, PageConfig> = {
     homePath: "/student",
     invitationsPath: "/student/invitations",
     title: "학생 홈",
-    invitationTitle: "보호자 연결 초대",
-    sendTitle: "보호자 연결 초대 보내기",
+    invitationTitle: "보호자 연결",
+    sendTitle: "보호자에게 연결 요청 보내기",
+    managementTitle: "보호자 연결",
+    managementDescription: "보호자와 연결하면 학원 생활 정보를 함께 확인할 수 있습니다.",
+    managementButtonLabel: "보호자 연결 관리",
     sentMessage: "보호자 연결 요청을 보냈습니다.",
     emailLabel: "보호자 이메일",
     phoneLabel: "보호자 전화번호",
@@ -102,6 +111,8 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
           <SummaryCard label={config.connectedTitle} value={`${state.relations.length}명`} />
           <SummaryCard label="보낸 초대장" value={`${sent.length}건`} />
         </div>
+
+        <ConnectionManagementCard config={config} />
 
         <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
           <InvitationForm config={config} state={state} compact />
@@ -436,6 +447,20 @@ function InvitationForm({
           </button>
         </div>
       </form>
+    </FamilyCard>
+  );
+}
+
+function ConnectionManagementCard({ config }: { config: PageConfig }) {
+  return (
+    <FamilyCard>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-950">{config.managementTitle}</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{config.managementDescription}</p>
+        </div>
+        <FamilyLinkButton href={config.invitationsPath}>{config.managementButtonLabel}</FamilyLinkButton>
+      </div>
     </FamilyCard>
   );
 }
