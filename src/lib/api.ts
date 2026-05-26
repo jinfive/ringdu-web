@@ -12,6 +12,7 @@ import type {
   LoginRequest,
   LoginResponse,
   MeResponse,
+  MyTeacherInvitationResponse,
   SignupRequest,
   SignupResponse,
   TeacherInvitationCreateRequest,
@@ -183,6 +184,41 @@ export async function getAcademyTeacherInvitations(
 export async function getAcademyTeachers(accessToken: string): Promise<AcademyTeacherResponse[]> {
   return request<AcademyTeacherResponse[]>("/api/academies/me/teachers", {
     method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getMyTeacherInvitations(
+  accessToken: string,
+): Promise<MyTeacherInvitationResponse[]> {
+  return request<MyTeacherInvitationResponse[]>("/api/teacher/invitations", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function acceptTeacherInvitation(
+  invitationId: number,
+  accessToken: string,
+): Promise<MyTeacherInvitationResponse> {
+  return request<MyTeacherInvitationResponse>(`/api/teacher/invitations/${invitationId}/accept`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function rejectTeacherInvitation(
+  invitationId: number,
+  accessToken: string,
+): Promise<MyTeacherInvitationResponse> {
+  return request<MyTeacherInvitationResponse>(`/api/teacher/invitations/${invitationId}/reject`, {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

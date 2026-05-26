@@ -171,6 +171,17 @@ export type TeacherInvitationResponse = TeacherInvitationCreateRequest & {
   expiresAt: string | null;
 };
 
+export type MyTeacherInvitationResponse = {
+  invitationId: number;
+  academyId: number;
+  academyName: string;
+  teacherEmail: string;
+  message: string | null;
+  status: TeacherInvitationStatus;
+  createdAt: string;
+  expiresAt: string | null;
+};
+
 export type AcademyTeacherResponse = {
   teacherUserId: number;
   name: string;
