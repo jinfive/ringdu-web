@@ -63,6 +63,26 @@ export function AcademyDashboard() {
     dateStyle: "full",
   }).format(new Date());
 
+  const loadDashboard = () => {
+    if (!accessToken) {
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage("");
+    void Promise.all([getMyAcademy(accessToken), getAcademyDashboard(accessToken)])
+      .then(([academyResponse, dashboardResponse]) => {
+        setAcademy(academyResponse);
+        setDashboard(dashboardResponse);
+      })
+      .catch((error) => {
+        setErrorMessage(getAcademyErrorMessage(error, "학원 대시보드 정보를 불러오지 못했습니다."));
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  };
+
   useEffect(() => {
     if (!accessToken) {
       return;
@@ -137,7 +157,16 @@ export function AcademyDashboard() {
 
         {errorMessage ? (
           <AcademyCard>
-            <p className="text-sm font-semibold text-red-600">{errorMessage}</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold text-red-600">{errorMessage}</p>
+              <button
+                type="button"
+                onClick={loadDashboard}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+              >
+                다시 시도
+              </button>
+            </div>
           </AcademyCard>
         ) : null}
 

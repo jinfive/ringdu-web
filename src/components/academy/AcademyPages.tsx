@@ -87,9 +87,16 @@ export function AcademyStudentsPage() {
     >
       <div className="space-y-6">
         {errorMessage ? (
-          <p className="rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-            {errorMessage}
-          </p>
+          <div className="flex flex-col gap-3 rounded-md border border-red-100 bg-red-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-semibold text-red-600">{errorMessage}</p>
+            <button
+              type="button"
+              onClick={loadStudents}
+              className="inline-flex h-10 items-center justify-center rounded-md border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+            >
+              다시 시도
+            </button>
+          </div>
         ) : null}
 
         <AcademyCard>
@@ -289,6 +296,30 @@ export function AcademyTeachersPage() {
   const [invitations, setInvitations] = useState<TeacherInvitationResponse[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isInvitationOpen, setIsInvitationOpen] = useState(false);
+
+  const loadTeachers = useCallback(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    setIsLoading(true);
+    void Promise.all([
+      getAcademyTeachers(accessToken),
+      getAcademyTeacherInvitations(accessToken),
+    ])
+      .then(([teacherResponses, invitationResponses]) => {
+        setTeachers(teacherResponses);
+        setInvitations(invitationResponses);
+        setErrorMessage("");
+      })
+      .catch((error) => {
+        setErrorMessage(getTeacherInvitationErrorMessage(error));
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [accessToken]);
 
   useEffect(() => {
     if (!accessToken) {
@@ -304,6 +335,7 @@ export function AcademyTeachersPage() {
         if (isMounted) {
           setTeachers(teacherResponses);
           setInvitations(invitationResponses);
+          setErrorMessage("");
         }
       })
       .catch((error) => {
@@ -326,13 +358,20 @@ export function AcademyTeachersPage() {
     <AcademyShell
       title="선생님 관리"
       description="학원에 소속된 선생님과 보낸 초대장을 관리합니다."
-      actions={<AcademyLinkButton href="/academy/teachers/new">선생님 초대</AcademyLinkButton>}
+      actions={<TeacherInvitationButton onClick={() => setIsInvitationOpen(true)} />}
     >
       <div className="space-y-6">
         {errorMessage ? (
-          <p className="whitespace-pre-line rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-            {errorMessage}
-          </p>
+          <div className="flex flex-col gap-3 rounded-md border border-red-100 bg-red-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="whitespace-pre-line text-sm font-semibold text-red-600">{errorMessage}</p>
+            <button
+              type="button"
+              onClick={loadTeachers}
+              className="inline-flex h-10 items-center justify-center rounded-md border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+            >
+              다시 시도
+            </button>
+          </div>
         ) : null}
 
         <AcademyCard>
@@ -352,7 +391,7 @@ export function AcademyTeachersPage() {
               <EmptyState
                 title="아직 연결된 선생님이 없습니다."
                 description="선생님에게 초대장을 보내 학원에 연결해 보세요."
-                action={<AcademyLinkButton href="/academy/teachers/new">선생님 초대</AcademyLinkButton>}
+                action={<TeacherInvitationButton onClick={() => setIsInvitationOpen(true)} />}
               />
             </div>
           ) : null}
@@ -396,7 +435,7 @@ export function AcademyTeachersPage() {
               <EmptyState
                 title="보낸 초대장이 없습니다."
                 description="이메일과 전화번호를 입력해 초대장을 보내세요."
-                action={<AcademyLinkButton href="/academy/teachers/new">선생님 초대</AcademyLinkButton>}
+                action={<TeacherInvitationButton onClick={() => setIsInvitationOpen(true)} />}
               />
             </div>
           ) : (
@@ -420,12 +459,86 @@ export function AcademyTeachersPage() {
           )}
         </AcademyCard>
       </div>
+
+      {isInvitationOpen ? (
+        <AcademyTeacherInvitationModal
+          accessToken={accessToken}
+          onClose={() => setIsInvitationOpen(false)}
+          onCompleted={loadTeachers}
+        />
+      ) : null}
     </AcademyShell>
   );
 }
 
 export function AcademyTeacherNewPage() {
   const { accessToken } = useAuth();
+
+  return (
+    <AcademyShell title="선생님 초대" description="선생님 관리는 목록 화면에서 초대장을 보내는 흐름을 권장합니다.">
+      <AcademyCard>
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-950">선생님 초대장 보내기</h2>
+            <p className="mt-1 text-sm text-slate-600">직접 접근한 경우에도 이 화면에서 초대장을 보낼 수 있습니다.</p>
+          </div>
+          <AcademyLinkButton href="/academy/teachers">선생님 관리로 이동</AcademyLinkButton>
+        </div>
+        <TeacherInvitationForm accessToken={accessToken} />
+      </AcademyCard>
+    </AcademyShell>
+  );
+}
+
+function AcademyTeacherInvitationModal({
+  accessToken,
+  onClose,
+  onCompleted,
+}: {
+  accessToken: string | null;
+  onClose: () => void;
+  onCompleted: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-3 py-4 sm:items-center">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-2xl">
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">선생님 초대</h2>
+              <p className="mt-1 text-sm text-slate-600">이메일과 전화번호로 학원 연결 초대장을 보냅니다.</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
+              aria-label="선생님 초대 닫기"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        <div className="px-5 py-5">
+          <TeacherInvitationForm
+            accessToken={accessToken}
+            onCompleted={() => {
+              onCompleted();
+              onClose();
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeacherInvitationForm({
+  accessToken,
+  onCompleted,
+}: {
+  accessToken: string | null;
+  onCompleted?: () => void;
+}) {
   const [form, setForm] = useState<TeacherInvitationCreateRequest>({
     teacherEmail: "",
     teacherPhone: "",
@@ -484,6 +597,7 @@ export function AcademyTeacherNewPage() {
         message: current.message,
       }));
       setSuccessMessage("선생님 초대장을 보냈습니다.");
+      onCompleted?.();
     } catch (error) {
       setErrorMessage(getTeacherInvitationErrorMessage(error));
     } finally {
@@ -492,8 +606,7 @@ export function AcademyTeacherNewPage() {
   };
 
   return (
-    <AcademyShell title="선생님 초대" description="선생님에게 초대장을 보내 학원에 연결하세요.">
-      <AcademyCard>
+    <>
         {successMessage ? (
           <p className="mb-5 rounded-md border border-green-100 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
             {successMessage}
@@ -539,8 +652,19 @@ export function AcademyTeacherNewPage() {
             </button>
           </div>
         </form>
-      </AcademyCard>
-    </AcademyShell>
+    </>
+  );
+}
+
+function TeacherInvitationButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+    >
+      선생님 초대
+    </button>
   );
 }
 
@@ -623,9 +747,10 @@ export function AcademyConsultationsPage() {
       <div className="space-y-6">
         <AcademyCard>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {["학생 이름", "보호자 이름", "연락처", "희망 과목", "희망 상담일", "상태", "메모"].map((field) => (
-              <FieldPreview key={field} label={field} value="목록 항목" />
-            ))}
+            <FieldPreview label="상태" value="전체" />
+            <FieldPreview label="상담일" value="전체" />
+            <FieldPreview label="상담 유형" value="전체" />
+            <FieldPreview label="담당자" value="전체" />
           </div>
         </AcademyCard>
         <EmptyState
@@ -641,13 +766,11 @@ export function AcademyConsultationsPage() {
 export function AcademyConsultationNewPage() {
   return (
     <AcademyShell title="신규 상담 등록" description="등록 전 문의와 상담 예약 정보를 입력하는 화면입니다.">
-      <AcademyCard>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {["학생 이름", "보호자 이름", "연락처", "희망 과목", "희망 상담일", "상태", "메모"].map((field) => (
-            <FieldPreview key={field} label={field} value="준비 중" />
-          ))}
-        </div>
-      </AcademyCard>
+      <EmptyState
+        title="신규 상담 등록 기능은 준비 중입니다."
+        description="입력 항목이 확정되기 전까지는 목록 화면에서 상담 내역만 확인할 수 있습니다."
+        action={<AcademyLinkButton href="/academy/consultations">신규 상담으로 이동</AcademyLinkButton>}
+      />
     </AcademyShell>
   );
 }
@@ -655,13 +778,24 @@ export function AcademyConsultationNewPage() {
 export function AcademyInvoicesPage() {
   return (
     <AcademyShell title="청구서/수납" description="학생별 청구서와 수강료 납부 상태를 확인합니다.">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {["이번 달 청구서 0건", "미납 목록 0건", "납부 완료 0건", "청구서 미발송 0건"].map((item) => (
-          <AcademyCard key={item}>
-            <p className="text-lg font-bold text-slate-950">{item}</p>
-            <p className="mt-2 text-sm text-slate-600">상태 관리는 도메인 API 연결 후 제공됩니다.</p>
-          </AcademyCard>
-        ))}
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            ["이번 달 청구서", "0건"],
+            ["미납 목록", "0건"],
+            ["납부 완료", "0건"],
+            ["청구서 미발송", "0건"],
+          ].map(([label, value]) => (
+            <AcademyCard key={label}>
+              <p className="text-sm font-semibold text-slate-500">{label}</p>
+              <p className="mt-3 text-2xl font-bold text-slate-950">{value}</p>
+            </AcademyCard>
+          ))}
+        </div>
+        <EmptyState
+          title="아직 청구서가 없습니다."
+          description="청구서 생성과 수납 상태 관리는 도메인 API 연결 후 제공됩니다."
+        />
       </div>
     </AcademyShell>
   );

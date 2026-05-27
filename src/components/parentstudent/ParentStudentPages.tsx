@@ -86,6 +86,7 @@ const configs: Record<FamilyRole, PageConfig> = {
 export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
   const config = configs[role];
   const state = useParentStudentState(config);
+  const [isInvitationOpen, setIsInvitationOpen] = useState(false);
   const receivedPending = useMemo(
     () => state.invitations.filter((invitation) => invitation.direction === "RECEIVED" && invitation.status === "PENDING"),
     [state.invitations],
@@ -107,9 +108,18 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
           <SummaryCard label="보낸 초대장" value={`${sent.length}건`} />
         </div>
 
-        <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-          <InvitationForm config={config} state={state} compact />
-
+        <section className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+          <FamilyCard>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-950">{config.sendTitle}</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  연락처를 알고 있다면 초대장을 보내 연결을 요청할 수 있습니다.
+                </p>
+              </div>
+              <FamilyButton onClick={() => setIsInvitationOpen(true)}>초대장 보내기</FamilyButton>
+            </div>
+          </FamilyCard>
           <FamilyCard>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -157,6 +167,10 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
             />
           </FamilyCard>
         </section>
+
+        {isInvitationOpen ? (
+          <InvitationModal config={config} state={state} onClose={() => setIsInvitationOpen(false)} />
+        ) : null}
       </div>
     </FamilyShell>
   );
@@ -165,6 +179,7 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
 export function ParentStudentInvitationsPage({ role }: { role: FamilyRole }) {
   const config = configs[role];
   const state = useParentStudentState(config);
+  const [isInvitationOpen, setIsInvitationOpen] = useState(false);
   const received = state.invitations.filter((invitation) => invitation.direction === "RECEIVED");
   const sent = state.invitations.filter((invitation) => invitation.direction === "SENT");
 
@@ -174,7 +189,15 @@ export function ParentStudentInvitationsPage({ role }: { role: FamilyRole }) {
         {state.errorMessage ? <AlertMessage>{state.errorMessage}</AlertMessage> : null}
         {state.successMessage ? <SuccessMessage>{state.successMessage}</SuccessMessage> : null}
 
-        <InvitationForm config={config} state={state} />
+        <FamilyCard>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">{config.sendTitle}</h2>
+              <p className="mt-1 text-sm text-slate-600">받은 초대장 확인 중에도 새 연결 초대를 보낼 수 있습니다.</p>
+            </div>
+            <FamilyButton onClick={() => setIsInvitationOpen(true)}>초대장 보내기</FamilyButton>
+          </div>
+        </FamilyCard>
 
         <section className="grid gap-6 xl:grid-cols-2">
           <FamilyCard>
@@ -217,6 +240,10 @@ export function ParentStudentInvitationsPage({ role }: { role: FamilyRole }) {
         )}
 
         <RelationsPanel config={config} state={state} />
+
+        {isInvitationOpen ? (
+          <InvitationModal config={config} state={state} onClose={() => setIsInvitationOpen(false)} />
+        ) : null}
       </div>
     </FamilyShell>
   );
@@ -297,7 +324,7 @@ function useParentStudentState(config: PageConfig) {
   const submitInvitation = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!accessToken) {
-      return;
+      return false;
     }
 
     setIsSending(true);
@@ -326,8 +353,10 @@ function useParentStudentState(config: PageConfig) {
       setMessage(config.defaultMessage);
       setSuccessMessage(config.sentMessage);
       await load();
+      return true;
     } catch (error) {
       setErrorMessage(getFamilyErrorMessage(error));
+      return false;
     } finally {
       setIsSending(false);
     }
@@ -475,17 +504,24 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
 function InvitationForm({
   config,
   state,
-  compact = false,
+  onSubmitted,
 }: {
   config: PageConfig;
   state: ReturnType<typeof useParentStudentState>;
-  compact?: boolean;
+  onSubmitted?: () => void;
 }) {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    const sent = await state.submitInvitation(event);
+    if (sent) {
+      onSubmitted?.();
+    }
+  };
+
   return (
     <FamilyCard>
       <h2 className="text-lg font-bold text-slate-950">{config.sendTitle}</h2>
-      <form className="mt-4 grid gap-4" onSubmit={state.submitInvitation}>
-        <div className={`grid gap-4 ${compact ? "" : "md:grid-cols-2"}`}>
+      <form className="mt-4 grid gap-4" onSubmit={handleSubmit}>
+        <div className="grid gap-4 md:grid-cols-2">
           <TextField label={config.emailLabel} value={state.email} onChange={state.setEmail} />
           <TextField label={config.phoneLabel} value={state.phone} onChange={state.setPhone} required />
         </div>
@@ -508,6 +544,44 @@ function InvitationForm({
         </div>
       </form>
     </FamilyCard>
+  );
+}
+
+function InvitationModal({
+  config,
+  state,
+  onClose,
+}: {
+  config: PageConfig;
+  state: ReturnType<typeof useParentStudentState>;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-3 py-4 sm:items-center">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-2xl">
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">{config.sendTitle}</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {config.role === "PARENT" ? "학생에게 자녀 연결 초대장을 보냅니다." : "보호자에게 연결 초대장을 보냅니다."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
+              aria-label="연결 초대 닫기"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        <div className="px-5 py-5">
+          <InvitationForm config={config} state={state} onSubmitted={onClose} />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -739,6 +813,18 @@ function FamilyLinkButton({ href, children }: { href: string; children: ReactNod
     >
       {children}
     </Link>
+  );
+}
+
+function FamilyButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+    >
+      {children}
+    </button>
   );
 }
 
