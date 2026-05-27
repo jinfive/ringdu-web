@@ -8,7 +8,7 @@ import type { AcademyDashboardResponse, AcademyResponse } from "@/types/auth";
 import { AcademyCard, AcademyLinkButton, AcademyShell, StatusBadge } from "./AcademyShell";
 
 const registrationActions = [
-  { href: "/academy/students/new", label: "학생(부모) 등록" },
+  { href: "/academy/students", label: "학생 등록" },
   { href: "/academy/teachers/new", label: "선생님 초대" },
   { href: "/academy/consultations/new", label: "신규 상담 등록" },
   { href: "/academy/invoices", label: "청구서 생성" },
@@ -112,7 +112,7 @@ export function AcademyDashboard() {
     <AcademyShell
       title="학원 홈"
       description="오늘의 운영 현황을 확인하세요."
-      actions={<AcademyLinkButton href="/academy/students/new">학생(부모) 등록</AcademyLinkButton>}
+      actions={<AcademyLinkButton href="/academy/students">학생 등록</AcademyLinkButton>}
     >
       <div className="space-y-8">
         <AcademyCard>

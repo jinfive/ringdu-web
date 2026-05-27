@@ -6,6 +6,8 @@ import type {
   AcademySignupApprovalResponse,
   AcademySignupRequest,
   AcademySignupResponse,
+  AcademyStudentCreateRequest,
+  AcademyStudentResponse,
   AcademyTeacherResponse,
   AcademyUpdateRequest,
   CreateAcademyAccountRequest,
@@ -22,6 +24,9 @@ import type {
   TeacherInvitationCreateRequest,
   TeacherInvitationResponse,
   TokenRefreshResponse,
+  AccountCandidateResponse,
+  AcademyStudentInvitationCreateRequest,
+  AcademyStudentInvitationResponse,
 } from "@/types/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
@@ -308,6 +313,128 @@ export async function rejectParentStudentInvitation(
   accessToken: string,
 ): Promise<ParentStudentInvitationResponse> {
   return request<ParentStudentInvitationResponse>(`/api/parent-student-invitations/${invitationId}/reject`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createAcademyStudent(
+  payload: AcademyStudentCreateRequest,
+  accessToken: string,
+): Promise<AcademyStudentResponse> {
+  return request<AcademyStudentResponse>("/api/academies/me/students", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAcademyStudents(accessToken: string): Promise<AcademyStudentResponse[]> {
+  return request<AcademyStudentResponse[]>("/api/academies/me/students", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getAcademyStudent(
+  studentId: number,
+  accessToken: string,
+): Promise<AcademyStudentResponse> {
+  return request<AcademyStudentResponse>(`/api/academies/me/students/${studentId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateAcademyStudent(
+  studentId: number,
+  payload: AcademyStudentCreateRequest,
+  accessToken: string,
+): Promise<AcademyStudentResponse> {
+  return request<AcademyStudentResponse>(`/api/academies/me/students/${studentId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+
+export async function searchAccountCandidates(
+  role: "STUDENT" | "PARENT",
+  phone?: string,
+  accessToken?: string
+): Promise<AccountCandidateResponse> {
+  const params = new URLSearchParams({ role });
+  if (phone) params.append("phone", phone);
+
+  return request<AccountCandidateResponse>(`/api/academies/me/account-candidates?${params.toString()}`, {
+    method: "GET",
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+}
+
+export async function createAcademyStudentInvitation(
+  payload: AcademyStudentInvitationCreateRequest,
+  accessToken: string
+): Promise<AcademyStudentInvitationResponse> {
+  return request<AcademyStudentInvitationResponse>("/api/academies/me/student-invitations", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAcademyStudentInvitations(
+  accessToken: string
+): Promise<AcademyStudentInvitationResponse[]> {
+  return request<AcademyStudentInvitationResponse[]>("/api/academies/me/student-invitations", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getStudentAcademyInvitations(
+  accessToken: string
+): Promise<AcademyStudentInvitationResponse[]> {
+  return request<AcademyStudentInvitationResponse[]>("/api/student/academy-invitations", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function acceptStudentAcademyInvitation(
+  invitationId: number,
+  accessToken: string
+): Promise<void> {
+  await request<null>(`/api/student/academy-invitations/${invitationId}/accept`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function rejectStudentAcademyInvitation(
+  invitationId: number,
+  accessToken: string
+): Promise<void> {
+  await request<null>(`/api/student/academy-invitations/${invitationId}/reject`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,

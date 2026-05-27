@@ -6,6 +6,9 @@ import { RoleGuard } from "@/components/auth/RoleGuard";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
   acceptParentStudentInvitation,
+  acceptStudentAcademyInvitation,
+  getStudentAcademyInvitations,
+  rejectStudentAcademyInvitation,
   ApiError,
   createParentStudentInvitation,
   createStudentParentInvitation,
@@ -17,6 +20,7 @@ import {
 } from "@/lib/api";
 import type {
   ParentStudentInvitationResponse,
+  AcademyStudentInvitationResponse,
   ParentStudentInvitationStatus,
   ParentStudentRelationResponse,
 } from "@/types/auth";
@@ -51,7 +55,7 @@ const configs: Record<FamilyRole, PageConfig> = {
     invitationTitle: "자녀 연결 초대",
     sendTitle: "자녀 연결 초대 보내기",
     sentMessage: "자녀 연결 요청을 보냈습니다.",
-    emailLabel: "학생 이메일",
+    emailLabel: "학생 이메일(선택)",
     phoneLabel: "학생 전화번호",
     connectedTitle: "연결된 자녀",
     connectedEmptyTitle: "아직 연결된 자녀가 없습니다.",
@@ -68,7 +72,7 @@ const configs: Record<FamilyRole, PageConfig> = {
     invitationTitle: "보호자 연결 초대",
     sendTitle: "보호자 연결 초대 보내기",
     sentMessage: "보호자 연결 요청을 보냈습니다.",
-    emailLabel: "보호자 이메일",
+    emailLabel: "보호자 이메일(선택)",
     phoneLabel: "보호자 전화번호",
     connectedTitle: "연결된 보호자",
     connectedEmptyTitle: "아직 연결된 보호자가 없습니다.",
@@ -126,7 +130,20 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
         </section>
 
         <section className="grid gap-6 xl:grid-cols-2">
-          <RelationsPanel config={config} state={state} />
+          {role === "STUDENT" && (
+          <FamilyCard>
+            <h2 className="text-lg font-bold text-slate-950">학원 연결 초대장</h2>
+            <p className="mt-1 text-sm text-slate-600">학원에서 보낸 학생 등록 초대장입니다.</p>
+            <AcademyInvitationList
+              invitations={state.academyInvitations}
+              isLoading={state.isLoading}
+              processingId={state.processingId}
+              onProcess={state.processAcademyInvitation}
+            />
+          </FamilyCard>
+        )}
+
+        <RelationsPanel config={config} state={state} />
           <FamilyCard>
             <h2 className="text-lg font-bold text-slate-950">보낸 초대장</h2>
             <InvitationList
@@ -186,15 +203,30 @@ export function ParentStudentInvitationsPage({ role }: { role: FamilyRole }) {
           </FamilyCard>
         </section>
 
+        {role === "STUDENT" && (
+          <FamilyCard>
+            <h2 className="text-lg font-bold text-slate-950">학원 연결 초대장</h2>
+            <p className="mt-1 text-sm text-slate-600">학원에서 보낸 학생 등록 초대장입니다.</p>
+            <AcademyInvitationList
+              invitations={state.academyInvitations}
+              isLoading={state.isLoading}
+              processingId={state.processingId}
+              onProcess={state.processAcademyInvitation}
+            />
+          </FamilyCard>
+        )}
+
         <RelationsPanel config={config} state={state} />
       </div>
     </FamilyShell>
   );
 }
 
+
 function useParentStudentState(config: PageConfig) {
   const { accessToken } = useAuth();
   const [invitations, setInvitations] = useState<ParentStudentInvitationResponse[]>([]);
+  const [academyInvitations, setAcademyInvitations] = useState<AcademyStudentInvitationResponse[]>([]);
   const [relations, setRelations] = useState<ParentStudentRelationResponse[]>([]);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -211,12 +243,14 @@ function useParentStudentState(config: PageConfig) {
     }
 
     try {
-      const [invitationResponses, relationResponses] = await Promise.all([
+      const [invitationResponses, relationResponses, academyInvitationResponses] = await Promise.all([
         config.role === "PARENT" ? getParentInvitations(accessToken) : getStudentInvitations(accessToken),
         config.role === "PARENT" ? getParentStudents(accessToken) : getStudentParents(accessToken),
+        config.role === "STUDENT" ? getStudentAcademyInvitations(accessToken) : Promise.resolve([]),
       ]);
       setInvitations(invitationResponses);
       setRelations(relationResponses);
+      setAcademyInvitations(academyInvitationResponses as AcademyStudentInvitationResponse[]);
       setErrorMessage("");
     } catch (error) {
       setErrorMessage(getFamilyErrorMessage(error));
@@ -234,11 +268,13 @@ function useParentStudentState(config: PageConfig) {
     void Promise.all([
       config.role === "PARENT" ? getParentInvitations(accessToken) : getStudentInvitations(accessToken),
       config.role === "PARENT" ? getParentStudents(accessToken) : getStudentParents(accessToken),
+      config.role === "STUDENT" ? getStudentAcademyInvitations(accessToken) : Promise.resolve([]),
     ])
-      .then(([invitationResponses, relationResponses]) => {
+      .then(([invitationResponses, relationResponses, academyInvitationResponses]) => {
         if (isMounted) {
           setInvitations(invitationResponses);
           setRelations(relationResponses);
+          setAcademyInvitations(academyInvitationResponses as AcademyStudentInvitationResponse[]);
           setErrorMessage("");
         }
       })
@@ -269,10 +305,21 @@ function useParentStudentState(config: PageConfig) {
     setSuccessMessage("");
 
     try {
+      const normalizedEmail = email.trim() || null;
+      const normalizedPhone = phone.trim();
+      const normalizedMessage = message.trim();
       if (config.role === "PARENT") {
-        await createParentStudentInvitation({ studentEmail: email, studentPhone: phone, message }, accessToken);
+        await createParentStudentInvitation({
+          studentEmail: normalizedEmail,
+          studentPhone: normalizedPhone,
+          message: normalizedMessage,
+        }, accessToken);
       } else {
-        await createStudentParentInvitation({ parentEmail: email, parentPhone: phone, message }, accessToken);
+        await createStudentParentInvitation({
+          parentEmail: normalizedEmail,
+          parentPhone: normalizedPhone,
+          message: normalizedMessage,
+        }, accessToken);
       }
       setEmail("");
       setPhone("");
@@ -309,8 +356,32 @@ function useParentStudentState(config: PageConfig) {
     }
   };
 
+  const processAcademyInvitation = async (invitationId: number, action: "accept" | "reject") => {
+    if (!accessToken) {
+      return;
+    }
+
+    setProcessingId(invitationId);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      if (action === "accept") {
+        await acceptStudentAcademyInvitation(invitationId, accessToken);
+      } else {
+        await rejectStudentAcademyInvitation(invitationId, accessToken);
+      }
+      await load();
+    } catch (error) {
+      setErrorMessage(getFamilyErrorMessage(error));
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   return {
     invitations,
+    academyInvitations,
     relations,
     email,
     setEmail,
@@ -325,9 +396,9 @@ function useParentStudentState(config: PageConfig) {
     successMessage,
     submitInvitation,
     processInvitation,
+    processAcademyInvitation,
   };
 }
-
 function FamilyShell({ config, mode, children }: { config: PageConfig; mode: PageMode; children: ReactNode }) {
   const { user, logout } = useAuth();
   const menu = [
@@ -415,7 +486,7 @@ function InvitationForm({
       <h2 className="text-lg font-bold text-slate-950">{config.sendTitle}</h2>
       <form className="mt-4 grid gap-4" onSubmit={state.submitInvitation}>
         <div className={`grid gap-4 ${compact ? "" : "md:grid-cols-2"}`}>
-          <TextField label={config.emailLabel} value={state.email} onChange={state.setEmail} required />
+          <TextField label={config.emailLabel} value={state.email} onChange={state.setEmail} />
           <TextField label={config.phoneLabel} value={state.phone} onChange={state.setPhone} required />
         </div>
         <label className="block">
@@ -478,7 +549,9 @@ function InvitationList({
                 <StatusBadge status={invitation.status} />
               </div>
               <p className="mt-2 text-sm text-slate-600">
-                {invitation.direction === "SENT" ? invitation.receiverEmail : `${invitation.requesterName}님이 보냄`}
+                {invitation.direction === "SENT"
+                  ? invitation.receiverEmail || invitation.receiverPhone
+                  : `${invitation.requesterName}님이 보냄`}
               </p>
               <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-700">
                 {invitation.message || "초대 메시지가 없습니다."}
@@ -503,6 +576,73 @@ function InvitationList({
                   disabled={processingId === invitation.invitationId}
                   onClick={() => void onProcess(invitation.invitationId, "reject")}
                   className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  거절
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+function AcademyInvitationList({
+  invitations,
+  isLoading,
+  processingId,
+  onProcess,
+}: {
+  invitations: AcademyStudentInvitationResponse[];
+  isLoading: boolean;
+  processingId: number | null;
+  onProcess: (invitationId: number, action: "accept" | "reject") => Promise<void>;
+}) {
+  if (isLoading) {
+    return <p className="mt-5 text-sm font-semibold text-slate-600">학원 초대장을 불러오고 있습니다.</p>;
+  }
+
+  if (invitations.length === 0) {
+    return <EmptyState title="받은 학원 초대장이 없습니다." description="학원에서 보낸 초대장이 있으면 이곳에 표시됩니다." />;
+  }
+
+  return (
+    <div className="mt-5 grid gap-4">
+      {invitations.map((invitation) => (
+        <div key={invitation.id} className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-bold text-slate-950">{invitation.academyName} 초대</h3>
+                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${invitation.status === "PENDING" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                  {invitation.status === "PENDING" ? "대기" : invitation.status}
+                </span>
+              </div>
+              <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-700">
+                {invitation.message || "학원 연결 초대장입니다."}
+              </p>
+              <p className="mt-4 text-xs font-semibold text-slate-500">
+                받은 날짜 {new Intl.DateTimeFormat("ko-KR").format(new Date(invitation.createdAt))}
+              </p>
+            </div>
+
+            {invitation.status === "PENDING" ? (
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  disabled={processingId === invitation.id}
+                  onClick={() => void onProcess(invitation.id, "accept")}
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:bg-slate-400"
+                >
+                  수락
+                </button>
+                <button
+                  type="button"
+                  disabled={processingId === invitation.id}
+                  onClick={() => void onProcess(invitation.id, "reject")}
+                  className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-red-50 hover:text-red-700 disabled:text-slate-400"
                 >
                   거절
                 </button>
