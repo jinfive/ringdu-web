@@ -212,7 +212,7 @@ function getFieldError(error: unknown) {
 
 function getAcademySignupErrorMessage(error: unknown) {
   if (error instanceof ApiError && error.status === 409) {
-    return "이미 사용 중인 이메일입니다.";
+    return getDuplicatedAccountMessage(error.message);
   }
 
   if (error instanceof ApiError && error.status === 400) {
@@ -220,4 +220,12 @@ function getAcademySignupErrorMessage(error: unknown) {
   }
 
   return "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
+function getDuplicatedAccountMessage(message: string) {
+  if (message.includes("전화번호")) {
+    return "이미 사용 중인 전화번호입니다.";
+  }
+
+  return "이미 사용 중인 이메일입니다.";
 }

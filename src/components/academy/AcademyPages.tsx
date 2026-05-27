@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   ApiError,
   createTeacherInvitation,
+  getAcademyStudent,
+  getAcademyStudents,
   getAcademyTeacherInvitations,
   getAcademyTeachers,
   getMyAcademy,
@@ -12,6 +14,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
 import type {
+  AcademyStudentResponse,
   AcademyTeacherResponse,
   AcademyUpdateRequest,
   TeacherInvitationCreateRequest,
@@ -27,72 +30,256 @@ import {
   StatusBadge,
   TabPreview,
 } from "./AcademyShell";
+import { AcademyStudentRegistrationModal } from "./AcademyStudentRegistrationModal";
 
 export function AcademyStudentsPage() {
+  const { accessToken } = useAuth();
+  const [students, setStudents] = useState<AcademyStudentResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
+
+  const loadStudents = useCallback(() => {
+    if (!accessToken) return;
+
+    setIsLoading(true);
+    getAcademyStudents(accessToken)
+      .then((data) => {
+        setStudents(data);
+        setErrorMessage("");
+      })
+      .catch((error) => {
+        setErrorMessage(getErrorMessage(error));
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+
+    let isMounted = true;
+    getAcademyStudents(accessToken)
+      .then((data) => {
+        if (isMounted) {
+          setStudents(data);
+          setErrorMessage("");
+        }
+      })
+      .catch((error) => {
+        if (isMounted) setErrorMessage(getErrorMessage(error));
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken]);
+
   return (
     <AcademyShell
       title="학생 관리"
       description="학생과 보호자 정보를 관리하세요."
-      actions={<AcademyLinkButton href="/academy/students/new">학생(부모) 등록</AcademyLinkButton>}
+      actions={<StudentRegistrationButton onClick={() => setIsRegistrationOpen(true)} />}
     >
       <div className="space-y-6">
+        {errorMessage ? (
+          <p className="rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+            {errorMessage}
+          </p>
+        ) : null}
+
         <AcademyCard>
           <div className="grid gap-3 md:grid-cols-[1.5fr_0.7fr_0.7fr_0.7fr]">
-            <FieldPreview label="검색" value="학생 이름 검색" />
+            <FieldPreview label="검색" value="준비 중" />
             <FieldPreview label="학년" value="전체" />
             <FieldPreview label="상태" value="전체" />
             <FieldPreview label="미납 여부" value="전체" />
           </div>
         </AcademyCard>
-        <EmptyState
-          title="아직 등록된 학생이 없습니다."
-          description="학생과 보호자 정보를 등록해 관리를 시작해 보세요."
-          action={<AcademyLinkButton href="/academy/students/new">학생(부모) 등록</AcademyLinkButton>}
-        />
+
+        {isLoading ? (
+          <p className="text-sm font-semibold text-slate-600">학생 목록을 불러오고 있습니다.</p>
+        ) : null}
+
+        {!isLoading && students.length === 0 ? (
+          <EmptyState
+            title="아직 등록된 학생이 없습니다."
+            description="학생 정보를 등록해 관리를 시작해 보세요."
+            action={<StudentRegistrationButton onClick={() => setIsRegistrationOpen(true)} />}
+          />
+        ) : null}
+
+        {!isLoading && students.length > 0 ? (
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="grid bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-500 md:grid-cols-[1.2fr_1fr_1fr_1fr_0.8fr]">
+              <span>이름</span>
+              <span>학교/학년</span>
+              <span>학생 연락처</span>
+              <span>보호자 연락처</span>
+              <span>상태</span>
+            </div>
+            {students.map((student) => (
+              <Link
+                key={student.id}
+                href={`/academy/students/${student.id}`}
+                className="grid gap-2 border-t border-slate-200 px-4 py-4 text-sm text-slate-700 transition hover:bg-slate-50 md:grid-cols-[1.2fr_1fr_1fr_1fr_0.8fr]"
+              >
+                <span className="font-semibold text-slate-950">{student.name}</span>
+                <span>
+                  {student.school || "-"} / {student.grade || "-"}
+                </span>
+                <span>{student.phone || "연락처 없음"}</span>
+                <span>{student.guardianPhone || "연락처 없음"}</span>
+                <StatusBadge>{getStudentStatusLabel(student.status)}</StatusBadge>
+              </Link>
+            ))}
+          </div>
+        ) : null}
       </div>
+
+      {isRegistrationOpen ? (
+        <AcademyStudentRegistrationModal
+          accessToken={accessToken}
+          onClose={() => setIsRegistrationOpen(false)}
+          onCompleted={loadStudents}
+        />
+      ) : null}
     </AcademyShell>
   );
 }
 
+
 export function AcademyStudentNewPage() {
   return (
-    <AcademyShell title="학생(부모) 등록" description="학생과 보호자를 함께 등록하는 단계형 화면입니다.">
-      <div className="grid gap-5 lg:grid-cols-4">
-        {["1단계: 학생 정보", "2단계: 부모 정보", "3단계: 수강 정보", "4단계: 확인"].map((step) => (
-          <AcademyCard key={step}>
-            <h2 className="text-lg font-bold text-slate-950">{step}</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-600">도메인 API 연결 후 입력 폼이 제공됩니다.</p>
-          </AcademyCard>
-        ))}
-      </div>
-      <div className="mt-6">
-        <EmptyState
-          title="학생 등록 기능은 준비 중입니다."
-          description="학생 기본 정보, 부모 정보, 수강 정보를 순서대로 입력할 수 있도록 준비하고 있습니다."
-        />
-      </div>
+    <AcademyShell title="학생 등록" description="학생 관리는 학생 목록 화면에서 바로 등록할 수 있습니다.">
+      <AcademyCard>
+        <p className="text-sm font-semibold text-slate-700">
+          학생 목록 화면에서 학생 등록 버튼을 눌러 등록을 진행해 주세요.
+        </p>
+        <div className="mt-5">
+          <AcademyLinkButton href="/academy/students">학생 관리로 이동</AcademyLinkButton>
+        </div>
+      </AcademyCard>
     </AcademyShell>
+  );
+}
+
+function StudentRegistrationButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+    >
+      학생 등록
+    </button>
   );
 }
 
 export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
+  const { accessToken } = useAuth();
+  const [student, setStudent] = useState<AcademyStudentResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void Promise.resolve().then(() => {
+      if (!accessToken || !isMounted) return;
+
+      setIsLoading(true);
+      setErrorMessage("");
+      getAcademyStudent(parseInt(studentId), accessToken)
+        .then((data) => {
+          if (isMounted) setStudent(data);
+        })
+        .catch((error) => {
+          if (isMounted) setErrorMessage(getErrorMessage(error));
+        })
+        .finally(() => {
+          if (isMounted) setIsLoading(false);
+        });
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken, studentId]);
+
+
   return (
-    <AcademyShell title="학생 상세" description={`학생 ID ${studentId}의 상세 정보를 확인하는 화면입니다.`}>
+    <AcademyShell title="학생 상세" description={student ? `${student.name} 학생의 정보를 관리합니다.` : "학생 정보를 확인합니다."}>
       <div className="space-y-6">
-        <TabPreview tabs={["기본 정보", "부모 정보", "수강 정보", "출석 기록", "청구서/수강료", "재원생 상담"]} />
-        <AcademyCard>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <StatusBadge>재원생</StatusBadge>
-              <h2 className="mt-3 text-xl font-bold text-slate-950">학생 정보 영역</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                재원생 상담은 신규 상담 메뉴와 분리해 학생 상세 안에서 관리합니다.
-              </p>
+        <TabPreview tabs={["기본 정보", "보호자 연락처", "수강 정보 준비 중", "출석 기록 준비 중", "청구서/수강료 준비 중", "재원생 상담 준비 중"]} />
+
+        {errorMessage ? (
+          <p className="rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+            {errorMessage}
+          </p>
+        ) : null}
+
+        {isLoading ? (
+          <p className="text-sm font-semibold text-slate-600">학생 정보를 불러오고 있습니다.</p>
+        ) : null}
+
+        {student ? (
+          <AcademyCard>
+            <div className="flex items-center justify-between gap-4 mb-6">
+              <div>
+                <StatusBadge>{getStudentStatusLabel(student.status)}</StatusBadge>
+                <h2 className="mt-3 text-xl font-bold text-slate-950">{student.name}</h2>
+              </div>
+              {/* Connection Status */
+              student.userId ? (
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-600 border border-emerald-100">
+                  계정 연결됨
+                </span>
+              ) : student.matchedStudentUserExists ? (
+                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-600 border border-amber-100">
+                  계정 매칭됨 (초대 필요)
+                </span>
+              ) : (
+                <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-bold text-slate-500 border border-slate-100">
+                  비회원
+                </span>
+              )
+            }
             </div>
-          </div>
-        </AcademyCard>
+
+            <StudentDetailBasicTab student={student} />
+          </AcademyCard>
+        ) : null}
       </div>
     </AcademyShell>
+  );
+}
+
+function StudentDetailBasicTab({ student }: { student: AcademyStudentResponse }) {
+  return (
+    <div className="grid gap-6 sm:grid-cols-2">
+      <FieldPreview label="학교" value={student.school || "-"} />
+      <FieldPreview label="학년" value={student.grade || "-"} />
+      <FieldPreview label="이메일" value={student.email || "-"} />
+      <FieldPreview label="학생 연락처" value={student.phone || "-"} />
+      <StudentGuardianInfoCard student={student} />
+      <div className="sm:col-span-2">
+        <FieldPreview label="메모" value={student.memo || "-"} />
+      </div>
+    </div>
+  );
+}
+
+function StudentGuardianInfoCard({ student }: { student: AcademyStudentResponse }) {
+  return (
+    <>
+      <FieldPreview label="보호자 연락처" value={student.guardianParentPhone || student.guardianPhone || "-"} />
+      <FieldPreview label="보호자 계정" value={student.guardianAccountLinked ? "계정 연결됨" : "미연결"} />
+    </>
   );
 }
 
@@ -154,7 +341,7 @@ export function AcademyTeachersPage() {
               <h2 className="text-lg font-bold text-slate-950">소속 선생님</h2>
               <p className="mt-1 text-sm text-slate-600">초대장을 수락한 선생님이 표시됩니다.</p>
             </div>
-            <StatusBadge>0명</StatusBadge>
+            <StatusBadge>{teachers.length}명</StatusBadge>
           </div>
           {isLoading ? (
             <p className="mt-5 text-sm font-semibold text-slate-600">선생님 목록을 불러오고 있습니다.</p>
@@ -537,7 +724,7 @@ export function AcademySettingsPage() {
       })
       .catch((error) => {
         if (isMounted) {
-          setErrorMessage(getSettingsErrorMessage(error));
+          setErrorMessage(getErrorMessage(error));
         }
       })
       .finally(() => {
@@ -656,11 +843,13 @@ function AcademyTextField({
   value,
   onChange,
   required = false,
+  placeholder = "",
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  placeholder?: string;
 }) {
   return (
     <label className="block">
@@ -668,6 +857,7 @@ function AcademyTextField({
       <input
         value={value}
         required={required}
+        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className="mt-2 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
       />
@@ -675,12 +865,12 @@ function AcademyTextField({
   );
 }
 
-function getSettingsErrorMessage(error: unknown) {
+function getErrorMessage(error: unknown) {
   if (error instanceof ApiError) {
     return error.message;
   }
 
-  return "학원 정보를 저장하지 못했습니다.\n입력 내용을 확인한 뒤 다시 시도해 주세요.";
+  return "요청을 처리하지 못했습니다.\n입력 내용을 확인한 뒤 다시 시도해 주세요.";
 }
 
 function getTeacherInvitationErrorMessage(error: unknown) {
@@ -701,6 +891,16 @@ function getInvitationStatusLabel(status: TeacherInvitationStatus) {
   };
 
   return labels[status];
+}
+
+function getStudentStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    ACTIVE: "재원",
+    INACTIVE: "비활성",
+    GRADUATED: "졸업",
+  };
+
+  return labels[status] || status;
 }
 
 function defaultInvitationMessage(academyName: string) {

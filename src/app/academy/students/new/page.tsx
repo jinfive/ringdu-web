@@ -1,5 +1,5 @@
-import { AcademyStudentNewPage } from "@/components/academy/AcademyPages";
+import { redirect } from "next/navigation";
 
 export default function StudentNewPage() {
-  return <AcademyStudentNewPage />;
+  redirect("/academy/students");
 }

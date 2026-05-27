@@ -198,7 +198,7 @@ export type ParentStudentInvitationResponse = {
   invitationId: number;
   requesterUserId: number;
   requesterName: string;
-  receiverEmail: string;
+  receiverEmail: string | null;
   receiverPhone: string;
   requesterRole: "PARENT" | "STUDENT";
   targetRole: "PARENT" | "STUDENT";
@@ -225,13 +225,80 @@ export type ParentStudentRelationResponse = {
 };
 
 export type ParentStudentInvitationCreateRequest = {
-  studentEmail: string;
+  studentEmail?: string | null;
   studentPhone: string;
   message: string;
 };
 
 export type StudentParentInvitationCreateRequest = {
-  parentEmail: string;
+  parentEmail?: string | null;
   parentPhone: string;
   message: string;
+};
+
+export type StudentStatus = "ACTIVE" | "INACTIVE" | "GRADUATED";
+
+export type AcademyStudentCreateRequest = {
+  name: string;
+  birthDate?: string | null;
+  school: string | null;
+  grade: string | null;
+  email?: string | null;
+  phone: string | null;
+  guardianPhone: string | null;
+  guardianParentUserId?: number | null;
+  memo: string | null;
+};
+
+export type AcademyStudentResponse = AcademyStudentCreateRequest & {
+  id: number;
+  academyId: number;
+  userId: number | null;
+  status: StudentStatus;
+  matchedStudentUserExists: boolean;
+  guardianAccountLinked: boolean;
+  guardianParentName: string | null;
+  guardianParentEmail: string | null;
+  guardianParentPhone: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AccountCandidateResponse = {
+  candidates: CandidateDto[];
+};
+
+export type CandidateDto = {
+  userId: number;
+  name: string;
+  email: string;
+  phone: string;
+  role: UserRole;
+};
+
+export type AcademyStudentInvitationStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELED";
+
+export type AcademyStudentInvitationCreateRequest = {
+  studentProfileId: number | null;
+  receiverUserId: number;
+  receiverEmail: string | null;
+  receiverPhone: string | null;
+  message: string | null;
+};
+
+export type AcademyStudentInvitationResponse = {
+  id: number;
+  academyId: number;
+  academyName: string;
+  studentProfileId: number | null;
+  receiverUserId: number;
+  receiverEmail: string | null;
+  receiverPhone: string | null;
+  message: string | null;
+  status: AcademyStudentInvitationStatus;
+  createdByUserId: number;
+  respondedByUserId: number | null;
+  respondedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
