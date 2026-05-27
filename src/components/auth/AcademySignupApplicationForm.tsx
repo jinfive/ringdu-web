@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -161,9 +162,15 @@ export function AcademySignupApplicationForm() {
       </p>
 
       {successMessage ? (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-          {successMessage}
-        </p>
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-medium text-emerald-800">
+          <p>{successMessage}</p>
+          <Link
+            href="/login"
+            className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-800"
+          >
+            로그인 페이지로 이동
+          </Link>
+        </div>
       ) : null}
 
       {errorMessage ? (
@@ -212,7 +219,7 @@ function getFieldError(error: unknown) {
 
 function getAcademySignupErrorMessage(error: unknown) {
   if (error instanceof ApiError && error.status === 409) {
-    return "이미 사용 중인 이메일입니다.";
+    return getDuplicatedAccountMessage(error.message);
   }
 
   if (error instanceof ApiError && error.status === 400) {
@@ -220,4 +227,12 @@ function getAcademySignupErrorMessage(error: unknown) {
   }
 
   return "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
+function getDuplicatedAccountMessage(message: string) {
+  if (message.includes("전화번호")) {
+    return "이미 사용 중인 전화번호입니다.";
+  }
+
+  return "이미 사용 중인 이메일입니다.";
 }

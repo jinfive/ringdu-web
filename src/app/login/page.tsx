@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SocialLoginButtons } from "@/components/auth/SocialLoginButtons";
 
@@ -26,7 +27,9 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <LoginForm />
+            <Suspense fallback={<p className="text-sm font-semibold text-slate-600">로그인 화면을 준비하고 있습니다.</p>}>
+              <LoginForm />
+            </Suspense>
 
             <div className="mt-6 rounded-md border border-slate-100 bg-slate-50 px-4 py-4">
               <p className="text-sm font-semibold text-slate-700">아직 계정이 없나요?</p>

@@ -6,6 +6,9 @@ import { RoleGuard } from "@/components/auth/RoleGuard";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
   acceptParentStudentInvitation,
+  acceptStudentAcademyInvitation,
+  getStudentAcademyInvitations,
+  rejectStudentAcademyInvitation,
   ApiError,
   createParentStudentInvitation,
   createStudentParentInvitation,
@@ -17,6 +20,7 @@ import {
 } from "@/lib/api";
 import type {
   ParentStudentInvitationResponse,
+  AcademyStudentInvitationResponse,
   ParentStudentInvitationStatus,
   ParentStudentRelationResponse,
 } from "@/types/auth";
@@ -58,7 +62,7 @@ const configs: Record<FamilyRole, PageConfig> = {
     managementDescription: "자녀와 연결하면 출석, 시간표, 청구 정보를 확인할 수 있습니다.",
     managementButtonLabel: "자녀 연결 관리",
     sentMessage: "자녀 연결 요청을 보냈습니다.",
-    emailLabel: "학생 이메일",
+    emailLabel: "학생 이메일(선택)",
     phoneLabel: "학생 전화번호",
     connectedTitle: "연결된 자녀",
     connectedEmptyTitle: "아직 연결된 자녀가 없습니다.",
@@ -78,7 +82,7 @@ const configs: Record<FamilyRole, PageConfig> = {
     managementDescription: "보호자와 연결하면 학원 생활 정보를 함께 확인할 수 있습니다.",
     managementButtonLabel: "보호자 연결 관리",
     sentMessage: "보호자 연결 요청을 보냈습니다.",
-    emailLabel: "보호자 이메일",
+    emailLabel: "보호자 이메일(선택)",
     phoneLabel: "보호자 전화번호",
     connectedTitle: "연결된 보호자",
     connectedEmptyTitle: "아직 연결된 보호자가 없습니다.",
@@ -134,7 +138,33 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
             />
           </FamilyCard>
 
+          {role === "STUDENT" ? (
+            <FamilyCard>
+              <h2 className="text-lg font-bold text-slate-950">학원 연결 초대장</h2>
+              <p className="mt-1 text-sm text-slate-600">학원에서 보낸 학생 등록 초대장입니다.</p>
+              <AcademyInvitationList
+                invitations={state.academyInvitations}
+                isLoading={state.isLoading}
+                processingId={state.processingId}
+                onProcess={state.processAcademyInvitation}
+              />
+            </FamilyCard>
+          ) : null}
+
           <RelationsPanel config={config} state={state} />
+
+          <FamilyCard>
+            <h2 className="text-lg font-bold text-slate-950">보낸 초대장</h2>
+            <InvitationList
+              config={config}
+              invitations={sent.slice(0, 3)}
+              isLoading={state.isLoading}
+              processingId={state.processingId}
+              onProcess={state.processInvitation}
+              emptyTitle={config.sentEmptyTitle}
+              readonly
+            />
+          </FamilyCard>
         </section>
       </div>
     </FamilyShell>
@@ -167,13 +197,9 @@ export function ParentStudentInvitationsPage({ role }: { role: FamilyRole }) {
               <h2 className="text-lg font-bold text-slate-950">{config.managementTitle}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">{config.managementDescription}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsRequestFormOpen(true)}
-              className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
-            >
+            <FamilyButton onClick={() => setIsRequestFormOpen(true)}>
               {config.role === "PARENT" ? "자녀에게 요청 보내기" : "보호자에게 요청 보내기"}
-            </button>
+            </FamilyButton>
           </div>
         </FamilyCard>
 
@@ -208,17 +234,32 @@ export function ParentStudentInvitationsPage({ role }: { role: FamilyRole }) {
           </FamilyCard>
         ) : null}
 
+        {role === "STUDENT" ? (
+          <FamilyCard>
+            <h2 className="text-lg font-bold text-slate-950">학원 연결 초대장</h2>
+            <p className="mt-1 text-sm text-slate-600">학원에서 보낸 학생 등록 초대장입니다.</p>
+            <AcademyInvitationList
+              invitations={state.academyInvitations}
+              isLoading={state.isLoading}
+              processingId={state.processingId}
+              onProcess={state.processAcademyInvitation}
+            />
+          </FamilyCard>
+        ) : null}
+
         {isRequestFormOpen ? (
-          <RequestFormModal config={config} state={state} onClose={() => setIsRequestFormOpen(false)} />
+          <InvitationModal config={config} state={state} onClose={() => setIsRequestFormOpen(false)} />
         ) : null}
       </div>
     </FamilyShell>
   );
 }
 
+
 function useParentStudentState(config: PageConfig) {
   const { accessToken } = useAuth();
   const [invitations, setInvitations] = useState<ParentStudentInvitationResponse[]>([]);
+  const [academyInvitations, setAcademyInvitations] = useState<AcademyStudentInvitationResponse[]>([]);
   const [relations, setRelations] = useState<ParentStudentRelationResponse[]>([]);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -235,12 +276,14 @@ function useParentStudentState(config: PageConfig) {
     }
 
     try {
-      const [invitationResponses, relationResponses] = await Promise.all([
+      const [invitationResponses, relationResponses, academyInvitationResponses] = await Promise.all([
         config.role === "PARENT" ? getParentInvitations(accessToken) : getStudentInvitations(accessToken),
         config.role === "PARENT" ? getParentStudents(accessToken) : getStudentParents(accessToken),
+        config.role === "STUDENT" ? getStudentAcademyInvitations(accessToken) : Promise.resolve([]),
       ]);
       setInvitations(invitationResponses);
       setRelations(relationResponses);
+      setAcademyInvitations(academyInvitationResponses as AcademyStudentInvitationResponse[]);
       setErrorMessage("");
     } catch (error) {
       setErrorMessage(getFamilyErrorMessage(error));
@@ -258,11 +301,13 @@ function useParentStudentState(config: PageConfig) {
     void Promise.all([
       config.role === "PARENT" ? getParentInvitations(accessToken) : getStudentInvitations(accessToken),
       config.role === "PARENT" ? getParentStudents(accessToken) : getStudentParents(accessToken),
+      config.role === "STUDENT" ? getStudentAcademyInvitations(accessToken) : Promise.resolve([]),
     ])
-      .then(([invitationResponses, relationResponses]) => {
+      .then(([invitationResponses, relationResponses, academyInvitationResponses]) => {
         if (isMounted) {
           setInvitations(invitationResponses);
           setRelations(relationResponses);
+          setAcademyInvitations(academyInvitationResponses as AcademyStudentInvitationResponse[]);
           setErrorMessage("");
         }
       })
@@ -285,7 +330,7 @@ function useParentStudentState(config: PageConfig) {
   const submitInvitation = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!accessToken) {
-      return;
+      return false;
     }
 
     setIsSending(true);
@@ -293,18 +338,31 @@ function useParentStudentState(config: PageConfig) {
     setSuccessMessage("");
 
     try {
+      const normalizedEmail = email.trim() || null;
+      const normalizedPhone = phone.trim();
+      const normalizedMessage = message.trim();
       if (config.role === "PARENT") {
-        await createParentStudentInvitation({ studentEmail: email, studentPhone: phone, message }, accessToken);
+        await createParentStudentInvitation({
+          studentEmail: normalizedEmail,
+          studentPhone: normalizedPhone,
+          message: normalizedMessage,
+        }, accessToken);
       } else {
-        await createStudentParentInvitation({ parentEmail: email, parentPhone: phone, message }, accessToken);
+        await createStudentParentInvitation({
+          parentEmail: normalizedEmail,
+          parentPhone: normalizedPhone,
+          message: normalizedMessage,
+        }, accessToken);
       }
       setEmail("");
       setPhone("");
       setMessage(config.defaultMessage);
       setSuccessMessage(config.sentMessage);
       await load();
+      return true;
     } catch (error) {
       setErrorMessage(getFamilyErrorMessage(error));
+      return false;
     } finally {
       setIsSending(false);
     }
@@ -333,8 +391,32 @@ function useParentStudentState(config: PageConfig) {
     }
   };
 
+  const processAcademyInvitation = async (invitationId: number, action: "accept" | "reject") => {
+    if (!accessToken) {
+      return;
+    }
+
+    setProcessingId(invitationId);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      if (action === "accept") {
+        await acceptStudentAcademyInvitation(invitationId, accessToken);
+      } else {
+        await rejectStudentAcademyInvitation(invitationId, accessToken);
+      }
+      await load();
+    } catch (error) {
+      setErrorMessage(getFamilyErrorMessage(error));
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   return {
     invitations,
+    academyInvitations,
     relations,
     email,
     setEmail,
@@ -349,9 +431,9 @@ function useParentStudentState(config: PageConfig) {
     successMessage,
     submitInvitation,
     processInvitation,
+    processAcademyInvitation,
   };
 }
-
 function FamilyShell({ config, mode, children }: { config: PageConfig; mode: PageMode; children: ReactNode }) {
   const { user, logout } = useAuth();
   const menu = [
@@ -392,9 +474,6 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
                   <h1 className="mt-1 text-2xl font-bold text-slate-950">
                     {mode === "dashboard" ? config.title : config.invitationTitle}
                   </h1>
-                  {mode === "invitations" ? (
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{config.managementDescription}</p>
-                  ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="text-sm font-semibold text-slate-600">{user?.name ?? "사용자"}님</span>
@@ -428,84 +507,17 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
   );
 }
 
-function InvitationForm({
-  config,
-  state,
-  compact = false,
-  framed = true,
-}: {
-  config: PageConfig;
-  state: ReturnType<typeof useParentStudentState>;
-  compact?: boolean;
-  framed?: boolean;
-}) {
-  const form = (
-    <>
-      {framed ? <h2 className="text-lg font-bold text-slate-950">{config.sendTitle}</h2> : null}
-      <form className={framed ? "mt-4 grid gap-4" : "grid gap-4"} onSubmit={state.submitInvitation}>
-        <div className={`grid gap-4 ${compact ? "" : "md:grid-cols-2"}`}>
-          <TextField label={config.emailLabel} value={state.email} onChange={state.setEmail} required />
-          <TextField label={config.phoneLabel} value={state.phone} onChange={state.setPhone} required />
-        </div>
-        <label className="block">
-          <span className="text-sm font-bold text-slate-700">초대 메시지</span>
-          <textarea
-            value={state.message}
-            onChange={(event) => state.setMessage(event.target.value)}
-            className="mt-2 min-h-28 w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-          />
-        </label>
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={state.isSending}
-            className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-          >
-            {state.isSending ? "전송 중" : "초대장 보내기"}
-          </button>
-        </div>
-      </form>
-    </>
-  );
-
-  return framed ? <FamilyCard>{form}</FamilyCard> : form;
-}
-
-function RequestFormModal({
-  config,
-  state,
-  onClose,
-}: {
-  config: PageConfig;
-  state: ReturnType<typeof useParentStudentState>;
-  onClose: () => void;
-}) {
+function ConnectionManagementCard({ config }: { config: PageConfig }) {
   return (
-    <div className="fixed inset-0 z-40 flex items-end bg-slate-950/40 px-4 py-4 sm:items-center sm:justify-center">
-      <div className="w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl shadow-slate-900/20">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-bold text-slate-950">{config.sendTitle}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              {config.role === "PARENT"
-                ? "자녀 이메일과 전화번호를 입력해 연결 요청을 보냅니다."
-                : "보호자 이메일과 전화번호를 입력해 연결 요청을 보냅니다."}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
-            aria-label="닫기"
-          >
-            X
-          </button>
+    <FamilyCard>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-950">{config.managementTitle}</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{config.managementDescription}</p>
         </div>
-        <div className="mt-5">
-          <InvitationForm config={config} state={state} framed={false} />
-        </div>
+        <FamilyLinkButton href={config.invitationsPath}>{config.managementButtonLabel}</FamilyLinkButton>
       </div>
-    </div>
+    </FamilyCard>
   );
 }
 
@@ -540,17 +552,87 @@ function TabNav({
   );
 }
 
-function ConnectionManagementCard({ config }: { config: PageConfig }) {
+function InvitationForm({
+  config,
+  state,
+  onSubmitted,
+}: {
+  config: PageConfig;
+  state: ReturnType<typeof useParentStudentState>;
+  onSubmitted?: () => void;
+}) {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    const sent = await state.submitInvitation(event);
+    if (sent) {
+      onSubmitted?.();
+    }
+  };
+
   return (
     <FamilyCard>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-slate-950">{config.managementTitle}</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">{config.managementDescription}</p>
+      <h2 className="text-lg font-bold text-slate-950">{config.sendTitle}</h2>
+      <form className="mt-4 grid gap-4" onSubmit={handleSubmit}>
+        <div className="grid gap-4 md:grid-cols-2">
+          <TextField label={config.emailLabel} value={state.email} onChange={state.setEmail} />
+          <TextField label={config.phoneLabel} value={state.phone} onChange={state.setPhone} required />
         </div>
-        <FamilyLinkButton href={config.invitationsPath}>{config.managementButtonLabel}</FamilyLinkButton>
-      </div>
+        <label className="block">
+          <span className="text-sm font-bold text-slate-700">초대 메시지</span>
+          <textarea
+            value={state.message}
+            onChange={(event) => state.setMessage(event.target.value)}
+            className="mt-2 min-h-28 w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          />
+        </label>
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={state.isSending}
+            className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          >
+            {state.isSending ? "전송 중" : "초대장 보내기"}
+          </button>
+        </div>
+      </form>
     </FamilyCard>
+  );
+}
+
+function InvitationModal({
+  config,
+  state,
+  onClose,
+}: {
+  config: PageConfig;
+  state: ReturnType<typeof useParentStudentState>;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-3 py-4 sm:items-center">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-2xl">
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">{config.sendTitle}</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {config.role === "PARENT" ? "학생에게 자녀 연결 초대장을 보냅니다." : "보호자에게 연결 초대장을 보냅니다."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
+              aria-label="연결 초대 닫기"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        <div className="px-5 py-5">
+          <InvitationForm config={config} state={state} onSubmitted={onClose} />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -592,7 +674,9 @@ function InvitationList({
                 <StatusBadge status={invitation.status} />
               </div>
               <p className="mt-2 text-sm text-slate-600">
-                {invitation.direction === "SENT" ? invitation.receiverEmail : `${invitation.requesterName}님이 보냄`}
+                {invitation.direction === "SENT"
+                  ? invitation.receiverEmail || invitation.receiverPhone
+                  : `${invitation.requesterName}님이 보냄`}
               </p>
               <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-700">
                 {invitation.message || "초대 메시지가 없습니다."}
@@ -617,6 +701,73 @@ function InvitationList({
                   disabled={processingId === invitation.invitationId}
                   onClick={() => void onProcess(invitation.invitationId, "reject")}
                   className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  거절
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+function AcademyInvitationList({
+  invitations,
+  isLoading,
+  processingId,
+  onProcess,
+}: {
+  invitations: AcademyStudentInvitationResponse[];
+  isLoading: boolean;
+  processingId: number | null;
+  onProcess: (invitationId: number, action: "accept" | "reject") => Promise<void>;
+}) {
+  if (isLoading) {
+    return <p className="mt-5 text-sm font-semibold text-slate-600">학원 초대장을 불러오고 있습니다.</p>;
+  }
+
+  if (invitations.length === 0) {
+    return <EmptyState title="받은 학원 초대장이 없습니다." description="학원에서 보낸 초대장이 있으면 이곳에 표시됩니다." />;
+  }
+
+  return (
+    <div className="mt-5 grid gap-4">
+      {invitations.map((invitation) => (
+        <div key={invitation.id} className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-bold text-slate-950">{invitation.academyName} 초대</h3>
+                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${invitation.status === "PENDING" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                  {invitation.status === "PENDING" ? "대기" : invitation.status}
+                </span>
+              </div>
+              <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-700">
+                {invitation.message || "학원 연결 초대장입니다."}
+              </p>
+              <p className="mt-4 text-xs font-semibold text-slate-500">
+                받은 날짜 {new Intl.DateTimeFormat("ko-KR").format(new Date(invitation.createdAt))}
+              </p>
+            </div>
+
+            {invitation.status === "PENDING" ? (
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  disabled={processingId === invitation.id}
+                  onClick={() => void onProcess(invitation.id, "accept")}
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:bg-slate-400"
+                >
+                  수락
+                </button>
+                <button
+                  type="button"
+                  disabled={processingId === invitation.id}
+                  onClick={() => void onProcess(invitation.id, "reject")}
+                  className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-red-50 hover:text-red-700 disabled:text-slate-400"
                 >
                   거절
                 </button>
@@ -713,6 +864,18 @@ function FamilyLinkButton({ href, children }: { href: string; children: ReactNod
     >
       {children}
     </Link>
+  );
+}
+
+function FamilyButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+    >
+      {children}
+    </button>
   );
 }
 

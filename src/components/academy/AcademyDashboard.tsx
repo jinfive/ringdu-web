@@ -8,7 +8,7 @@ import type { AcademyDashboardResponse, AcademyResponse } from "@/types/auth";
 import { AcademyCard, AcademyLinkButton, AcademyShell, StatusBadge } from "./AcademyShell";
 
 const registrationActions = [
-  { href: "/academy/students/new", label: "학생(부모) 등록" },
+  { href: "/academy/students", label: "학생 등록" },
   { href: "/academy/teachers/new", label: "선생님 초대" },
   { href: "/academy/consultations/new", label: "신규 상담 등록" },
   { href: "/academy/invoices", label: "청구서 생성" },
@@ -53,7 +53,8 @@ const managementMenus = [
 ];
 
 export function AcademyDashboard() {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
+  const isPendingApproval = user?.status === "PENDING_APPROVAL";
   const [academy, setAcademy] = useState<AcademyResponse | null>(null);
   const [dashboard, setDashboard] = useState<AcademyDashboardResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -63,8 +64,28 @@ export function AcademyDashboard() {
     dateStyle: "full",
   }).format(new Date());
 
+  const loadDashboard = () => {
+    if (!accessToken || isPendingApproval) {
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage("");
+    void Promise.all([getMyAcademy(accessToken), getAcademyDashboard(accessToken)])
+      .then(([academyResponse, dashboardResponse]) => {
+        setAcademy(academyResponse);
+        setDashboard(dashboardResponse);
+      })
+      .catch((error) => {
+        setErrorMessage(getAcademyErrorMessage(error, "학원 대시보드 정보를 불러오지 못했습니다."));
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  };
+
   useEffect(() => {
-    if (!accessToken) {
+    if (!accessToken || isPendingApproval) {
       return;
     }
 
@@ -90,7 +111,7 @@ export function AcademyDashboard() {
     return () => {
       isMounted = false;
     };
-  }, [accessToken]);
+  }, [accessToken, isPendingApproval]);
 
   const summaryItems = useMemo(() => {
     const data = dashboard ?? {
@@ -112,7 +133,7 @@ export function AcademyDashboard() {
     <AcademyShell
       title="학원 홈"
       description="오늘의 운영 현황을 확인하세요."
-      actions={<AcademyLinkButton href="/academy/students/new">학생(부모) 등록</AcademyLinkButton>}
+      actions={<AcademyLinkButton href="/academy/students">학생 등록</AcademyLinkButton>}
     >
       <div className="space-y-8">
         <AcademyCard>
@@ -137,7 +158,16 @@ export function AcademyDashboard() {
 
         {errorMessage ? (
           <AcademyCard>
-            <p className="text-sm font-semibold text-red-600">{errorMessage}</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold text-red-600">{errorMessage}</p>
+              <button
+                type="button"
+                onClick={loadDashboard}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+              >
+                다시 시도
+              </button>
+            </div>
           </AcademyCard>
         ) : null}
 
