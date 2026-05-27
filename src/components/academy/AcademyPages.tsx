@@ -10,6 +10,7 @@ import {
   getAcademyTeacherInvitations,
   getAcademyTeachers,
   getMyAcademy,
+  searchAccountCandidates,
   updateMyAcademy,
 } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -17,6 +18,7 @@ import type {
   AcademyStudentResponse,
   AcademyTeacherResponse,
   AcademyUpdateRequest,
+  CandidateDto,
   TeacherInvitationCreateRequest,
   TeacherInvitationResponse,
   TeacherInvitationStatus,
@@ -33,14 +35,15 @@ import {
 import { AcademyStudentRegistrationModal } from "./AcademyStudentRegistrationModal";
 
 export function AcademyStudentsPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
+  const isPendingApproval = user?.status === "PENDING_APPROVAL";
   const [students, setStudents] = useState<AcademyStudentResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
 
   const loadStudents = useCallback(() => {
-    if (!accessToken) return;
+    if (!accessToken || isPendingApproval) return;
 
     setIsLoading(true);
     getAcademyStudents(accessToken)
@@ -54,10 +57,10 @@ export function AcademyStudentsPage() {
       .finally(() => {
         setIsLoading(false);
       });
-  }, [accessToken]);
+  }, [accessToken, isPendingApproval]);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!accessToken || isPendingApproval) return;
 
     let isMounted = true;
     getAcademyStudents(accessToken)
@@ -77,7 +80,7 @@ export function AcademyStudentsPage() {
     return () => {
       isMounted = false;
     };
-  }, [accessToken]);
+  }, [accessToken, isPendingApproval]);
 
   return (
     <AcademyShell
@@ -188,7 +191,8 @@ function StudentRegistrationButton({ onClick }: { onClick: () => void }) {
 }
 
 export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
+  const isPendingApproval = user?.status === "PENDING_APPROVAL";
   const [student, setStudent] = useState<AcademyStudentResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -197,7 +201,7 @@ export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
     let isMounted = true;
 
     void Promise.resolve().then(() => {
-      if (!accessToken || !isMounted) return;
+      if (!accessToken || isPendingApproval || !isMounted) return;
 
       setIsLoading(true);
       setErrorMessage("");
@@ -216,7 +220,7 @@ export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
     return () => {
       isMounted = false;
     };
-  }, [accessToken, studentId]);
+  }, [accessToken, isPendingApproval, studentId]);
 
 
   return (
@@ -291,7 +295,8 @@ function StudentGuardianInfoCard({ student }: { student: AcademyStudentResponse 
 }
 
 export function AcademyTeachersPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
+  const isPendingApproval = user?.status === "PENDING_APPROVAL";
   const [teachers, setTeachers] = useState<AcademyTeacherResponse[]>([]);
   const [invitations, setInvitations] = useState<TeacherInvitationResponse[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
@@ -299,7 +304,7 @@ export function AcademyTeachersPage() {
   const [isInvitationOpen, setIsInvitationOpen] = useState(false);
 
   const loadTeachers = useCallback(() => {
-    if (!accessToken) {
+    if (!accessToken || isPendingApproval) {
       return;
     }
 
@@ -319,10 +324,10 @@ export function AcademyTeachersPage() {
       .finally(() => {
         setIsLoading(false);
       });
-  }, [accessToken]);
+  }, [accessToken, isPendingApproval]);
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!accessToken || isPendingApproval) {
       return;
     }
 
@@ -352,7 +357,7 @@ export function AcademyTeachersPage() {
     return () => {
       isMounted = false;
     };
-  }, [accessToken]);
+  }, [accessToken, isPendingApproval]);
 
   return (
     <AcademyShell
@@ -434,7 +439,7 @@ export function AcademyTeachersPage() {
             <div className="mt-5">
               <EmptyState
                 title="보낸 초대장이 없습니다."
-                description="이메일과 전화번호를 입력해 초대장을 보내세요."
+                description="선생님 전화번호로 계정을 확인한 뒤 초대장을 보내세요."
                 action={<TeacherInvitationButton onClick={() => setIsInvitationOpen(true)} />}
               />
             </div>
@@ -444,8 +449,10 @@ export function AcademyTeachersPage() {
                 <div key={invitation.invitationId} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <h3 className="font-bold text-slate-950">{invitation.teacherEmail}</h3>
-                      <p className="mt-1 text-sm text-slate-600">{invitation.teacherPhone}</p>
+                      <h3 className="font-bold text-slate-950">{invitation.teacherPhone}</h3>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {invitation.teacherEmail ?? "비회원 선생님 초대"}
+                      </p>
                       <p className="mt-3 text-xs font-semibold text-slate-500">보낸 날짜 {formatDate(invitation.createdAt)}</p>
                     </div>
                     <StatusBadge>{getInvitationStatusLabel(invitation.status)}</StatusBadge>
@@ -540,10 +547,13 @@ function TeacherInvitationForm({
   onCompleted?: () => void;
 }) {
   const [form, setForm] = useState<TeacherInvitationCreateRequest>({
-    teacherEmail: "",
+    teacherUserId: null,
     teacherPhone: "",
     message: fallbackInvitationMessage(),
   });
+  const [candidates, setCandidates] = useState<CandidateDto[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -577,6 +587,30 @@ function TeacherInvitationForm({
     };
   }, [accessToken]);
 
+  const handleSearchCandidates = async () => {
+    if (!accessToken || !form.teacherPhone.trim()) {
+      setErrorMessage("선생님 전화번호를 입력한 뒤 계정을 확인해 주세요.");
+      return;
+    }
+
+    setIsSearching(true);
+    setHasSearched(false);
+    setSuccessMessage("");
+    setErrorMessage("");
+    setForm((current) => ({ ...current, teacherUserId: null }));
+
+    try {
+      const response = await searchAccountCandidates("TEACHER", form.teacherPhone.trim(), accessToken);
+      setCandidates(response.candidates);
+      setHasSearched(true);
+    } catch (error) {
+      setCandidates([]);
+      setErrorMessage(getTeacherInvitationErrorMessage(error));
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -585,18 +619,37 @@ function TeacherInvitationForm({
       return;
     }
 
+    if (!hasSearched) {
+      setErrorMessage("초대장을 보내기 전에 전화번호로 기존 선생님 계정을 확인해 주세요.");
+      return;
+    }
+
+    if (candidates.length > 0 && !form.teacherUserId) {
+      setErrorMessage("초대장을 보낼 선생님 계정을 선택해 주세요.");
+      return;
+    }
+
     setIsSending(true);
     setSuccessMessage("");
     setErrorMessage("");
 
     try {
-      await createTeacherInvitation(form, accessToken);
+      await createTeacherInvitation(
+        {
+          teacherUserId: form.teacherUserId ?? null,
+          teacherPhone: form.teacherPhone.trim(),
+          message: form.message,
+        },
+        accessToken,
+      );
       setForm((current) => ({
-        teacherEmail: "",
+        teacherUserId: null,
         teacherPhone: "",
         message: current.message,
       }));
-      setSuccessMessage("선생님 초대장을 보냈습니다.");
+      setCandidates([]);
+      setHasSearched(false);
+      setSuccessMessage("초대장을 보냈습니다.");
       onCompleted?.();
     } catch (error) {
       setErrorMessage(getTeacherInvitationErrorMessage(error));
@@ -607,51 +660,96 @@ function TeacherInvitationForm({
 
   return (
     <>
-        {successMessage ? (
-          <p className="mb-5 rounded-md border border-green-100 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
-            {successMessage}
-          </p>
+      {successMessage ? (
+        <p className="mb-5 rounded-md border border-green-100 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+          {successMessage}
+        </p>
+      ) : null}
+
+      {errorMessage ? (
+        <p className="mb-5 whitespace-pre-line rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+          {errorMessage}
+        </p>
+      ) : null}
+
+      <form className="grid gap-4" onSubmit={handleSubmit}>
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+          <AcademyTextField
+            label="선생님 전화번호"
+            value={form.teacherPhone}
+            onChange={(value) => {
+              setForm((current) => ({ ...current, teacherPhone: value, teacherUserId: null }));
+              setCandidates([]);
+              setHasSearched(false);
+            }}
+            required
+          />
+          <button
+            type="button"
+            onClick={handleSearchCandidates}
+            disabled={isSearching || !form.teacherPhone.trim()}
+            className="inline-flex h-11 items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            {isSearching ? "확인 중" : "기존 선생님 계정 확인"}
+          </button>
+        </div>
+
+        {hasSearched && candidates.length > 0 ? (
+          <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+            <h3 className="text-sm font-bold text-blue-900">가입된 선생님 계정을 찾았습니다.</h3>
+            <p className="mt-1 text-sm text-blue-800">선택한 선생님에게 초대장을 보냅니다.</p>
+            <div className="mt-3 grid gap-2">
+              {candidates.map((candidate) => {
+                const isSelected = form.teacherUserId === candidate.userId;
+                return (
+                  <button
+                    key={candidate.userId}
+                    type="button"
+                    onClick={() => setForm((current) => ({ ...current, teacherUserId: candidate.userId }))}
+                    className={`rounded-md border px-4 py-3 text-left transition ${
+                      isSelected
+                        ? "border-blue-600 bg-white ring-2 ring-blue-100"
+                        : "border-blue-100 bg-white hover:border-blue-300"
+                    }`}
+                  >
+                    <span className="block text-sm font-bold text-slate-950">{candidate.name}</span>
+                    <span className="mt-1 block text-xs font-semibold text-slate-600">
+                      {candidate.phone} · {candidate.email}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         ) : null}
 
-        {errorMessage ? (
-          <p className="mb-5 whitespace-pre-line rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-            {errorMessage}
-          </p>
+        {hasSearched && candidates.length === 0 ? (
+          <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+            <h3 className="text-sm font-bold text-amber-900">가입된 선생님 계정을 찾지 못했습니다.</h3>
+            <p className="mt-1 text-sm leading-6 text-amber-800">
+              비회원 선생님에게 초대장을 남겨두고, 해당 전화번호로 가입하면 초대장을 확인할 수 있습니다.
+            </p>
+          </div>
         ) : null}
 
-        <form className="grid gap-4" onSubmit={handleSubmit}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <AcademyTextField
-              label="이메일"
-              value={form.teacherEmail}
-              onChange={(value) => setForm((current) => ({ ...current, teacherEmail: value }))}
-              required
-            />
-            <AcademyTextField
-              label="전화번호"
-              value={form.teacherPhone}
-              onChange={(value) => setForm((current) => ({ ...current, teacherPhone: value }))}
-              required
-            />
-          </div>
-          <label className="block">
-            <span className="text-sm font-bold text-slate-700">초대 메시지</span>
-            <textarea
-              value={form.message}
-              onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
-              className="mt-2 min-h-28 w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-            />
-          </label>
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={isSending}
-              className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-            >
-              {isSending ? "전송 중" : "초대장 보내기"}
-            </button>
-          </div>
-        </form>
+        <label className="block">
+          <span className="text-sm font-bold text-slate-700">초대 메시지</span>
+          <textarea
+            value={form.message}
+            onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
+            className="mt-2 min-h-28 w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          />
+        </label>
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={isSending || !hasSearched || (candidates.length > 0 && !form.teacherUserId)}
+            className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          >
+            {isSending ? "전송 중" : "초대장 보내기"}
+          </button>
+        </div>
+      </form>
     </>
   );
 }
@@ -823,7 +921,8 @@ export function AcademyAttendancePage() {
 }
 
 export function AcademySettingsPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
+  const isPendingApproval = user?.status === "PENDING_APPROVAL";
   const [form, setForm] = useState<AcademyUpdateRequest>({
     name: "",
     representativeName: "",
@@ -838,7 +937,7 @@ export function AcademySettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!accessToken || isPendingApproval) {
       return;
     }
 
@@ -870,7 +969,7 @@ export function AcademySettingsPage() {
     return () => {
       isMounted = false;
     };
-  }, [accessToken]);
+  }, [accessToken, isPendingApproval]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

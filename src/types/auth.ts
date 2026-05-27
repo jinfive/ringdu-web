@@ -30,6 +30,7 @@ export type AuthUser = {
   email: string;
   name: string;
   role: UserRole;
+  status: UserStatus;
 };
 
 export type LoginResponse = AuthUser & {
@@ -158,13 +159,15 @@ export type AcademyDashboardResponse = {
 export type TeacherInvitationStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELED";
 
 export type TeacherInvitationCreateRequest = {
-  teacherEmail: string;
+  teacherUserId?: number | null;
   teacherPhone: string;
   message: string;
 };
 
 export type TeacherInvitationResponse = TeacherInvitationCreateRequest & {
   invitationId: number;
+  teacherUserId: number | null;
+  teacherEmail: string | null;
   status: TeacherInvitationStatus;
   createdAt: string;
   respondedAt: string | null;
@@ -175,7 +178,9 @@ export type MyTeacherInvitationResponse = {
   invitationId: number;
   academyId: number;
   academyName: string;
-  teacherEmail: string;
+  teacherUserId: number | null;
+  teacherEmail: string | null;
+  teacherPhone: string;
   message: string | null;
   status: TeacherInvitationStatus;
   createdAt: string;

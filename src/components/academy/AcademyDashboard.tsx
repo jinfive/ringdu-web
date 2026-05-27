@@ -53,7 +53,8 @@ const managementMenus = [
 ];
 
 export function AcademyDashboard() {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
+  const isPendingApproval = user?.status === "PENDING_APPROVAL";
   const [academy, setAcademy] = useState<AcademyResponse | null>(null);
   const [dashboard, setDashboard] = useState<AcademyDashboardResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -64,7 +65,7 @@ export function AcademyDashboard() {
   }).format(new Date());
 
   const loadDashboard = () => {
-    if (!accessToken) {
+    if (!accessToken || isPendingApproval) {
       return;
     }
 
@@ -84,7 +85,7 @@ export function AcademyDashboard() {
   };
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!accessToken || isPendingApproval) {
       return;
     }
 
@@ -110,7 +111,7 @@ export function AcademyDashboard() {
     return () => {
       isMounted = false;
     };
-  }, [accessToken]);
+  }, [accessToken, isPendingApproval]);
 
   const summaryItems = useMemo(() => {
     const data = dashboard ?? {
