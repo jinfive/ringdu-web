@@ -20,14 +20,14 @@ export function SocialLoginButtons() {
             key={provider.name}
             type="button"
             onClick={() => setMessage("간편로그인은 준비 중입니다.")}
-            className={`h-12 w-full rounded-md border px-4 text-base font-semibold transition ${provider.className}`}
+            className={`h-12 w-full rounded-2xl border px-4 text-base font-semibold transition ${provider.className}`}
           >
             {provider.name}로 간편로그인
           </button>
         ))}
       </div>
       {message ? (
-        <p className="mt-3 rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-center text-sm font-medium text-blue-700">
+        <p className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-center text-sm font-semibold text-blue-700">
           {message}
         </p>
       ) : null}

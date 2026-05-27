@@ -53,7 +53,7 @@ export function AdminAcademyAccountForm() {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <form
-        className="rounded-lg border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/60"
+        className="rounded-3xl border border-white/80 bg-white/95 p-6 shadow-2xl shadow-blue-100/60"
         onSubmit={handleSubmit(onSubmit)}
         noValidate
       >
@@ -100,13 +100,13 @@ export function AdminAcademyAccountForm() {
         </div>
 
         {errorMessage ? (
-          <p className="mt-5 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <p className="mt-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
             {errorMessage}
           </p>
         ) : null}
 
         {createdAccount ? (
-          <p className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          <p className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
             학원 계정이 생성되었습니다.
           </p>
         ) : null}
@@ -114,13 +114,13 @@ export function AdminAcademyAccountForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="mt-6 h-12 rounded-md bg-blue-700 px-5 text-base font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300"
+          className="mt-6 h-12 rounded-2xl bg-blue-700 px-5 text-base font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300 disabled:shadow-none"
         >
           {isSubmitting ? "생성 중" : "학원 계정 생성"}
         </button>
       </form>
 
-      <aside className="rounded-lg border border-slate-200 bg-white p-6 shadow-lg shadow-slate-100">
+      <aside className="rounded-3xl border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-200/60">
         <h2 className="text-lg font-bold text-slate-950">생성 결과</h2>
         {createdAccount ? (
           <dl className="mt-5 space-y-3 text-sm">

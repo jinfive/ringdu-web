@@ -130,7 +130,7 @@ export function AcademySignupApplicationForm() {
           <button
             type="button"
             onClick={handleAddressSearch}
-            className="h-12 rounded-md border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+            className="h-12 rounded-2xl border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
           >
             주소 찾기
           </button>
@@ -156,17 +156,17 @@ export function AcademySignupApplicationForm() {
         />
       </Field>
 
-      <p className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
+      <p className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
         학원 계정은 가입 신청 후 관리자 승인을 받아야 로그인할 수 있습니다. 주민등록번호는
         수집하지 않습니다.
       </p>
 
       {successMessage ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-medium text-emerald-800">
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-4 text-sm font-semibold text-emerald-800">
           <p>{successMessage}</p>
           <Link
             href="/login"
-            className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-800"
+            className="mt-3 inline-flex h-11 items-center justify-center rounded-2xl bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-800"
           >
             로그인 페이지로 이동
           </Link>
@@ -174,7 +174,7 @@ export function AcademySignupApplicationForm() {
       ) : null}
 
       {errorMessage ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+        <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
           {errorMessage}
         </p>
       ) : null}
@@ -182,7 +182,7 @@ export function AcademySignupApplicationForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="h-12 w-full rounded-md bg-blue-700 px-4 text-base font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300"
+        className="h-12 w-full rounded-2xl bg-blue-700 px-4 text-base font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300 disabled:shadow-none"
       >
         {isSubmitting ? "신청 처리 중" : "학원 가입 신청"}
       </button>
