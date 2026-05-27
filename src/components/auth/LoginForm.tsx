@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import type { ReactNode } from "react";
 import { ApiError } from "@/lib/api";
@@ -13,8 +13,10 @@ import { inputClassName } from "./SignupForm";
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
   const [errorMessage, setErrorMessage] = useState("");
+  const signupCompleted = searchParams.get("signup") === "complete";
 
   const {
     register,
@@ -60,6 +62,12 @@ export function LoginForm() {
           {...register("password")}
         />
       </Field>
+
+      {signupCompleted ? (
+        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          회원가입이 완료되었습니다. 로그인해 주세요.
+        </p>
+      ) : null}
 
       {errorMessage ? (
         <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">

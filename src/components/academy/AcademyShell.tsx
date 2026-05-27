@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { HomeAuthActions } from "@/components/auth/HomeAuthActions";
 import { RoleGuard } from "@/components/auth/RoleGuard";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 type AcademyShellProps = {
   title: string;
@@ -22,6 +23,68 @@ const academyMenu = [
 ];
 
 export function AcademyShell({ title, description, children, actions }: AcademyShellProps) {
+  const { user, loadMe, logout, isLoading } = useAuth();
+  const isPendingApproval = user?.role === "ACADEMY" && user.status === "PENDING_APPROVAL";
+
+  if (isPendingApproval) {
+    return (
+      <RoleGuard allowedRole="ACADEMY">
+        <main className="min-h-screen bg-slate-50 text-slate-950">
+          <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col">
+            <header className="border-b border-slate-200 bg-white px-5 py-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <Link href="/" className="text-xl font-bold tracking-tight text-blue-700">
+                    Ringdu
+                  </Link>
+                  <p className="mt-2 text-sm font-semibold text-amber-700">학원 승인 대기</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void logout()}
+                  className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  로그아웃
+                </button>
+              </div>
+            </header>
+
+            <section className="flex flex-1 items-center justify-center px-5 py-10">
+              <div className="w-full max-w-2xl rounded-lg border border-amber-200 bg-white p-6 shadow-sm">
+                <span className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                  승인 대기
+                </span>
+                <h1 className="mt-4 text-2xl font-bold text-slate-950">관리자 승인 대기 중입니다.</h1>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  학원 계정 신청이 접수되었습니다.
+                  <br />
+                  관리자 승인 후 학원 관리 기능을 사용할 수 있습니다.
+                </p>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => void loadMe()}
+                    disabled={isLoading}
+                    className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  >
+                    {isLoading ? "확인 중" : "새로고침"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void logout()}
+                    className="inline-flex h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    로그아웃
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </RoleGuard>
+    );
+  }
+
   return (
     <RoleGuard allowedRole="ACADEMY">
       <main className="min-h-screen bg-slate-50 text-slate-950">

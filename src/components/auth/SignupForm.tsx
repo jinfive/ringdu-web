@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { signup } from "@/lib/api";
 import { baseSignupSchema, type BaseSignupFormValues } from "@/lib/validations/auth";
@@ -18,7 +19,7 @@ export function SignupForm({
   submitLabel,
   notice,
 }: SignupFormProps) {
-  const [successMessage, setSuccessMessage] = useState("");
+  const router = useRouter();
   const [errorMessage, setErrorMessage] = useState("");
 
   const {
@@ -38,12 +39,11 @@ export function SignupForm({
   });
 
   const onSubmit = async (values: BaseSignupFormValues) => {
-    setSuccessMessage("");
     setErrorMessage("");
 
     try {
       const { email, password, passwordConfirm, name, phone } = values;
-      const response = await signup({
+      await signup({
         email,
         password,
         passwordConfirm,
@@ -51,8 +51,8 @@ export function SignupForm({
         phone,
         role,
       });
-      setSuccessMessage(`${response.name}님의 계정이 생성되었습니다.`);
       reset();
+      router.replace("/login?signup=complete");
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -117,12 +117,6 @@ export function SignupForm({
       {notice ? (
         <p className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
           {notice}
-        </p>
-      ) : null}
-
-      {successMessage ? (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-          {successMessage}
         </p>
       ) : null}
 

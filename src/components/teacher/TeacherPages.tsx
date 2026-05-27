@@ -250,7 +250,7 @@ export function TeacherInvitationsPage() {
                       <h2 className="text-lg font-bold text-slate-950">{invitation.academyName}</h2>
                       <StatusBadge status={invitation.status} />
                     </div>
-                    <p className="mt-2 text-sm text-slate-600">{invitation.teacherEmail}</p>
+                    <p className="mt-2 text-sm text-slate-600">초대 전화번호 {invitation.teacherPhone}</p>
                     <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-700">
                       {invitation.message || "초대 메시지가 없습니다."}
                     </p>

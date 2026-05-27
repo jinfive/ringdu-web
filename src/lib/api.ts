@@ -370,7 +370,7 @@ export async function updateAcademyStudent(
 
 
 export async function searchAccountCandidates(
-  role: "STUDENT" | "PARENT",
+  role: "STUDENT" | "PARENT" | "TEACHER",
   phone?: string,
   accessToken?: string
 ): Promise<AccountCandidateResponse> {

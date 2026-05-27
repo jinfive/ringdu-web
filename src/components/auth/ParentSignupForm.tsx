@@ -7,7 +7,7 @@ export function ParentSignupForm() {
     <SignupForm
       role="PARENT"
       submitLabel="학부모 가입하기"
-      notice="가입 후 자녀 연결은 학원 초대코드 또는 자녀 연결 기능을 통해 진행될 예정입니다."
+      notice="가입 후 자녀 연결 화면에서 학생에게 연결 초대장을 보낼 수 있습니다."
     />
   );
 }
