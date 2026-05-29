@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f9ff;
+  --background: #f6f8fc;
   --foreground: #172033;
 }
 
@@ -21,7 +21,9 @@ html {
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at top left, rgba(219, 230, 255, 0.72), transparent 34rem),
+    linear-gradient(180deg, #f8fbff 0%, var(--background) 38%, #ffffff 100%);
   color: var(--foreground);
   min-height: 100vh;
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
@@ -31,4 +33,9 @@ button,
 input,
 select {
   font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
 }

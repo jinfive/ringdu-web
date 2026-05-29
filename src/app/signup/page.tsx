@@ -26,13 +26,13 @@ const signupTypes = [
 
 export default function SignupPage() {
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#e9efff_0,#f7f9ff_42%,#ffffff_100%)] px-5 py-8 text-slate-900">
+    <main className="min-h-screen px-5 py-8 text-slate-900">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl flex-col">
         <nav className="mb-10 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-bold tracking-tight text-blue-700">
+          <Link href="/" className="text-2xl font-black tracking-tight text-blue-700">
             Ringdu
           </Link>
-          <Link href="/" className="text-sm font-semibold text-slate-600 hover:text-blue-700">
+          <Link href="/" className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
             홈으로
           </Link>
         </nav>
@@ -40,10 +40,10 @@ export default function SignupPage() {
         <section className="flex flex-1 items-center justify-center">
           <div className="w-full">
             <div className="mx-auto max-w-2xl text-center">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600">
+              <p className="inline-flex rounded-full border border-blue-100 bg-white/80 px-4 py-2 text-sm font-semibold text-blue-700 shadow-sm shadow-blue-100/60">
                 Linking Edu
               </p>
-              <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+              <h1 className="mt-5 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
                 Ringdu 시작하기
               </h1>
               <p className="mt-4 text-base leading-7 text-slate-600">

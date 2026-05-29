@@ -64,13 +64,13 @@ export function LoginForm() {
       </Field>
 
       {signupCompleted ? (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+        <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
           회원가입이 완료되었습니다. 로그인해 주세요.
         </p>
       ) : null}
 
       {errorMessage ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+        <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
           {errorMessage}
         </p>
       ) : null}
@@ -78,7 +78,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="h-12 w-full rounded-md bg-blue-700 px-4 text-base font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300"
+        className="h-12 w-full rounded-2xl bg-blue-700 px-4 text-base font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300 disabled:shadow-none"
       >
         {isSubmitting ? "로그인 처리 중" : "로그인"}
       </button>

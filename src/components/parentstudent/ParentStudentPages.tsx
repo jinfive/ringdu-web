@@ -60,7 +60,7 @@ const configs: Record<FamilyRole, PageConfig> = {
     sendTitle: "자녀에게 연결 요청 보내기",
     managementTitle: "자녀 연결",
     managementDescription: "자녀와 연결하면 출석, 시간표, 청구 정보를 확인할 수 있습니다.",
-    managementButtonLabel: "자녀 연결 관리",
+    managementButtonLabel: "연결 관리",
     sentMessage: "자녀 연결 요청을 보냈습니다.",
     emailLabel: "학생 이메일(선택)",
     phoneLabel: "학생 전화번호",
@@ -80,7 +80,7 @@ const configs: Record<FamilyRole, PageConfig> = {
     sendTitle: "보호자에게 연결 요청 보내기",
     managementTitle: "보호자 연결",
     managementDescription: "보호자와 연결하면 학원 생활 정보를 함께 확인할 수 있습니다.",
-    managementButtonLabel: "보호자 연결 관리",
+    managementButtonLabel: "연결 관리",
     sentMessage: "보호자 연결 요청을 보냈습니다.",
     emailLabel: "보호자 이메일(선택)",
     phoneLabel: "보호자 전화번호",
@@ -443,10 +443,10 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
 
   return (
     <RoleGuard allowedRole={config.role}>
-      <main className="min-h-screen bg-slate-50 text-slate-950">
+      <main className="min-h-screen text-slate-950">
         <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col lg:flex-row">
-          <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white px-5 py-6 lg:block">
-            <Link href="/" className="text-2xl font-bold tracking-tight text-blue-700">
+          <aside className="hidden w-60 shrink-0 border-r border-white/70 bg-white/80 px-5 py-6 backdrop-blur lg:block">
+            <Link href="/" className="text-2xl font-black tracking-tight text-blue-700">
               Ringdu
             </Link>
             <p className="mt-2 text-sm font-medium text-slate-500">{config.role === "PARENT" ? "학부모" : "학생"}</p>
@@ -455,7 +455,7 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="block rounded-md px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
+                  className="block rounded-2xl px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
                 >
                   {item.label}
                 </Link>
@@ -464,10 +464,10 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
           </aside>
 
           <section className="flex min-w-0 flex-1 flex-col">
-            <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
+            <header className="sticky top-0 z-10 border-b border-white/70 bg-white/85 px-5 py-4 backdrop-blur">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <Link href="/" className="text-xl font-bold tracking-tight text-blue-700 lg:hidden">
+                  <Link href="/" className="text-xl font-black tracking-tight text-blue-700 lg:hidden">
                     Ringdu
                   </Link>
                   <p className="mt-2 text-xs font-semibold uppercase text-blue-600 lg:mt-0">{config.role}</p>
@@ -480,7 +480,7 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
                   <button
                     type="button"
                     onClick={() => void logout()}
-                    className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                    className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   >
                     로그아웃
                   </button>
@@ -491,7 +491,7 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="shrink-0 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                    className="shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
                   >
                     {item.label}
                   </Link>
@@ -535,13 +535,13 @@ function TabNav({
   ];
 
   return (
-    <div className="flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+    <div className="flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}
-          className={`min-h-10 flex-1 rounded-md px-3 text-sm font-semibold transition ${
+          className={`min-h-11 flex-1 rounded-xl px-3 text-sm font-semibold transition ${
             activeTab === tab.id ? "bg-blue-700 text-white shadow-sm" : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
           }`}
         >
@@ -581,16 +581,16 @@ function InvitationForm({
           <textarea
             value={state.message}
             onChange={(event) => state.setMessage(event.target.value)}
-            className="mt-2 min-h-28 w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            className="mt-2 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           />
         </label>
         <div className="flex justify-end">
           <button
             type="submit"
             disabled={state.isSending}
-            className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
           >
-            {state.isSending ? "전송 중" : "초대장 보내기"}
+            {state.isSending ? "전송 중" : "요청 보내기"}
           </button>
         </div>
       </form>
@@ -609,7 +609,7 @@ function InvitationModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-3 py-4 sm:items-center">
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-2xl">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
         <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -621,7 +621,7 @@ function InvitationModal({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
               aria-label="연결 초대 닫기"
             >
               ×
@@ -666,7 +666,7 @@ function InvitationList({
   return (
     <div className="mt-5 grid gap-4">
       {invitations.map((invitation) => (
-        <div key={invitation.invitationId} className="rounded-lg border border-slate-200 bg-white p-5">
+        <div key={invitation.invitationId} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -692,7 +692,7 @@ function InvitationList({
                   type="button"
                   disabled={processingId === invitation.invitationId}
                   onClick={() => void onProcess(invitation.invitationId, "accept")}
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  className="inline-flex h-11 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                 >
                   수락
                 </button>
@@ -700,7 +700,7 @@ function InvitationList({
                   type="button"
                   disabled={processingId === invitation.invitationId}
                   onClick={() => void onProcess(invitation.invitationId, "reject")}
-                  className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
+                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
                 >
                   거절
                 </button>
@@ -736,7 +736,7 @@ function AcademyInvitationList({
   return (
     <div className="mt-5 grid gap-4">
       {invitations.map((invitation) => (
-        <div key={invitation.id} className="rounded-lg border border-slate-200 bg-white p-5">
+        <div key={invitation.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -759,7 +759,7 @@ function AcademyInvitationList({
                   type="button"
                   disabled={processingId === invitation.id}
                   onClick={() => void onProcess(invitation.id, "accept")}
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:bg-slate-400"
+                  className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:bg-slate-400"
                 >
                   수락
                 </button>
@@ -767,7 +767,7 @@ function AcademyInvitationList({
                   type="button"
                   disabled={processingId === invitation.id}
                   onClick={() => void onProcess(invitation.id, "reject")}
-                  className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-red-50 hover:text-red-700 disabled:text-slate-400"
+                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-red-50 hover:text-red-700 disabled:text-slate-400"
                 >
                   거절
                 </button>
@@ -797,7 +797,7 @@ function RelationsPanel({
       {state.relations.length > 0 ? (
         <div className="mt-5 grid gap-3">
           {state.relations.map((relation) => (
-            <div key={relation.relationId} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div key={relation.relationId} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="font-bold text-slate-950">
@@ -846,21 +846,21 @@ function TextField({
         value={value}
         required={required}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+        className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
       />
     </label>
   );
 }
 
 function FamilyCard({ children }: { children: ReactNode }) {
-  return <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">{children}</section>;
+  return <section className="rounded-3xl border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-200/60">{children}</section>;
 }
 
 function FamilyLinkButton({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Link
       href={href}
-      className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+      className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800"
     >
       {children}
     </Link>
@@ -872,7 +872,7 @@ function FamilyButton({ onClick, children }: { onClick: () => void; children: Re
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+      className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800"
     >
       {children}
     </button>
@@ -881,7 +881,7 @@ function FamilyButton({ onClick, children }: { onClick: () => void; children: Re
 
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
+    <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50/80 px-6 py-10 text-center">
       <h3 className="text-lg font-bold text-slate-950">{title}</h3>
       <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">{description}</p>
     </div>
@@ -898,7 +898,7 @@ function StatusBadge({ status }: { status: ParentStudentInvitationStatus }) {
   };
 
   return (
-    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${styles[status]}`}>
+    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ring-black/5 ${styles[status]}`}>
       {getStatusLabel(status)}
     </span>
   );
@@ -906,7 +906,7 @@ function StatusBadge({ status }: { status: ParentStudentInvitationStatus }) {
 
 function AlertMessage({ children }: { children: ReactNode }) {
   return (
-    <p className="whitespace-pre-line rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+    <p className="whitespace-pre-line rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
       {children}
     </p>
   );
@@ -914,7 +914,7 @@ function AlertMessage({ children }: { children: ReactNode }) {
 
 function SuccessMessage({ children }: { children: ReactNode }) {
   return (
-    <p className="rounded-md border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+    <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
       {children}
     </p>
   );

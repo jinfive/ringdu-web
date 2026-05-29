@@ -77,7 +77,7 @@ export function AdminAcademySignupApplications() {
 
   if (!accessToken) {
     return (
-      <p className="rounded-md border border-red-100 bg-white px-5 py-4 text-sm font-semibold text-red-600 shadow-lg shadow-red-100/50">
+      <p className="rounded-2xl border border-red-100 bg-white px-5 py-4 text-sm font-semibold text-red-600 shadow-lg shadow-red-100/50">
         관리자 인증이 필요합니다.
       </p>
     );
@@ -85,7 +85,7 @@ export function AdminAcademySignupApplications() {
 
   if (isLoading) {
     return (
-      <p className="rounded-md border border-blue-100 bg-white px-5 py-4 text-sm font-semibold text-slate-600 shadow-lg shadow-blue-100/50">
+      <p className="rounded-2xl border border-blue-100 bg-white px-5 py-4 text-sm font-semibold text-slate-600 shadow-lg shadow-blue-100/50">
         승인 대기 목록을 불러오고 있습니다.
       </p>
     );
@@ -94,26 +94,26 @@ export function AdminAcademySignupApplications() {
   return (
     <div className="space-y-5">
       {successMessage ? (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+        <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
           {successMessage}
         </p>
       ) : null}
 
       {errorMessage ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+        <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
           {errorMessage}
         </p>
       ) : null}
 
       {applications.length === 0 ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-6 text-center shadow-lg shadow-slate-100">
-          <h2 className="text-xl font-bold text-slate-950">승인 대기 신청이 없습니다.</h2>
+        <div className="rounded-3xl border border-white/80 bg-white/95 p-8 text-center shadow-xl shadow-slate-200/60">
+          <h2 className="text-xl font-black text-slate-950">승인 대기 신청이 없습니다.</h2>
           <p className="mt-3 text-sm leading-6 text-slate-600">
             새 학원 가입 신청이 접수되면 이 화면에 표시됩니다.
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-blue-100 bg-white shadow-xl shadow-blue-100/60">
+        <div className="overflow-hidden rounded-3xl border border-white/80 bg-white/95 shadow-2xl shadow-blue-100/60">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-100 text-sm">
               <thead className="bg-blue-50 text-left text-slate-700">
@@ -145,7 +145,7 @@ export function AdminAcademySignupApplications() {
                         type="button"
                         disabled={approvingId === application.applicationId}
                         onClick={() => void handleApprove(application)}
-                        className="h-10 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300"
+                        className="h-11 rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/60 transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300 disabled:shadow-none"
                       >
                         {approvingId === application.applicationId ? "승인 중" : "승인"}
                       </button>

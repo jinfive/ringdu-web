@@ -119,7 +119,7 @@ export function TeacherDashboardPage() {
             {connectedAcademies.length > 0 ? (
               <div className="mt-5 grid gap-3">
                 {connectedAcademies.map((invitation) => (
-                  <div key={invitation.invitationId} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div key={invitation.invitationId} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <h3 className="font-bold text-slate-950">{invitation.academyName}</h3>
@@ -138,7 +138,7 @@ export function TeacherDashboardPage() {
           <h2 className="text-lg font-bold text-slate-950">준비 중 메뉴</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {preparingMenus.map((menu) => (
-              <div key={menu} className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5">
+              <div key={menu} className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-4 py-5">
                 <p className="font-bold text-slate-950">{menu}</p>
                 <p className="mt-2 text-sm font-semibold text-slate-500">준비 중</p>
               </div>
@@ -243,7 +243,7 @@ export function TeacherInvitationsPage() {
         {invitations.length > 0 ? (
           <div className="grid gap-4">
             {invitations.map((invitation) => (
-              <div key={invitation.invitationId} className="rounded-lg border border-slate-200 bg-white p-5">
+              <div key={invitation.invitationId} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -265,7 +265,7 @@ export function TeacherInvitationsPage() {
                         type="button"
                         disabled={processingId === invitation.invitationId}
                         onClick={() => void handleInvitation(invitation.invitationId, "accept")}
-                        className="inline-flex h-10 items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        className="inline-flex h-11 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                       >
                         수락
                       </button>
@@ -273,7 +273,7 @@ export function TeacherInvitationsPage() {
                         type="button"
                         disabled={processingId === invitation.invitationId}
                         onClick={() => void handleInvitation(invitation.invitationId, "reject")}
-                        className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
+                        className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:text-slate-400"
                       >
                         거절
                       </button>
@@ -294,10 +294,10 @@ function TeacherShell({ title, children }: { title: string; children: ReactNode 
 
   return (
     <RoleGuard allowedRole="TEACHER">
-      <main className="min-h-screen bg-slate-50 text-slate-950">
+      <main className="min-h-screen text-slate-950">
         <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col lg:flex-row">
-          <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white px-5 py-6 lg:block">
-            <Link href="/" className="text-2xl font-bold tracking-tight text-blue-700">
+          <aside className="hidden w-60 shrink-0 border-r border-white/70 bg-white/80 px-5 py-6 backdrop-blur lg:block">
+            <Link href="/" className="text-2xl font-black tracking-tight text-blue-700">
               Ringdu
             </Link>
             <p className="mt-2 text-sm font-medium text-slate-500">선생님</p>
@@ -306,7 +306,7 @@ function TeacherShell({ title, children }: { title: string; children: ReactNode 
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="block rounded-md px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
+                  className="block rounded-2xl px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
                 >
                   {item.label}
                 </Link>
@@ -315,10 +315,10 @@ function TeacherShell({ title, children }: { title: string; children: ReactNode 
           </aside>
 
           <section className="flex min-w-0 flex-1 flex-col">
-            <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
+            <header className="sticky top-0 z-10 border-b border-white/70 bg-white/85 px-5 py-4 backdrop-blur">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <Link href="/" className="text-xl font-bold tracking-tight text-blue-700 lg:hidden">
+                  <Link href="/" className="text-xl font-black tracking-tight text-blue-700 lg:hidden">
                     Ringdu
                   </Link>
                   <p className="mt-2 text-xs font-semibold uppercase text-blue-600 lg:mt-0">TEACHER</p>
@@ -329,7 +329,7 @@ function TeacherShell({ title, children }: { title: string; children: ReactNode 
                   <button
                     type="button"
                     onClick={() => void logout()}
-                    className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                    className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   >
                     로그아웃
                   </button>
@@ -340,7 +340,7 @@ function TeacherShell({ title, children }: { title: string; children: ReactNode 
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="shrink-0 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                    className="shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
                   >
                     {item.label}
                   </Link>
@@ -366,14 +366,14 @@ function SummaryCard({ label, value, muted = false }: { label: string; value: st
 }
 
 function TeacherCard({ children }: { children: ReactNode }) {
-  return <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">{children}</section>;
+  return <section className="rounded-3xl border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-200/60">{children}</section>;
 }
 
 function TeacherLinkButton({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Link
       href={href}
-      className="inline-flex h-10 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+      className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800"
     >
       {children}
     </Link>
@@ -382,7 +382,7 @@ function TeacherLinkButton({ href, children }: { href: string; children: ReactNo
 
 function TeacherEmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
+    <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50/80 px-6 py-10 text-center">
       <h2 className="text-lg font-bold text-slate-950">{title}</h2>
       <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">{description}</p>
     </div>
@@ -391,7 +391,7 @@ function TeacherEmptyState({ title, description }: { title: string; description:
 
 function InvitationPreview({ invitation }: { invitation: MyTeacherInvitationResponse }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 transition hover:border-blue-100 hover:bg-white">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="font-bold text-slate-950">{invitation.academyName}</h3>
@@ -413,7 +413,7 @@ function StatusBadge({ status }: { status: TeacherInvitationStatus }) {
   };
 
   return (
-    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${styles[status]}`}>
+    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ring-black/5 ${styles[status]}`}>
       {getInvitationStatusLabel(status)}
     </span>
   );
@@ -425,7 +425,7 @@ function AlertMessage({ children, tone }: { children: ReactNode; tone: "error" }
       ? "border-red-100 bg-red-50 text-red-600"
       : "border-slate-200 bg-slate-50 text-slate-600";
 
-  return <p className={`mb-5 whitespace-pre-line rounded-md border px-4 py-3 text-sm font-semibold ${className}`}>{children}</p>;
+  return <p className={`mb-5 whitespace-pre-line rounded-2xl border px-4 py-3 text-sm font-semibold ${className}`}>{children}</p>;
 }
 
 function getInvitationStatusLabel(status: TeacherInvitationStatus) {

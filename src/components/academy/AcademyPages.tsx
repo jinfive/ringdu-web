@@ -95,12 +95,12 @@ export function AcademyStudentsPage() {
     >
       <div className="space-y-6">
         {errorMessage ? (
-          <div className="flex flex-col gap-3 rounded-md border border-red-100 bg-red-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-semibold text-red-600">{errorMessage}</p>
             <button
               type="button"
               onClick={loadStudents}
-              className="inline-flex h-10 items-center justify-center rounded-md border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50"
             >
               다시 시도
             </button>
@@ -129,7 +129,7 @@ export function AcademyStudentsPage() {
         ) : null}
 
         {!isLoading && students.length > 0 ? (
-          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
             <div className="grid bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-500 md:grid-cols-[1.2fr_1fr_1fr_1fr_0.8fr]">
               <span>이름</span>
               <span>학교/학년</span>
@@ -188,7 +188,7 @@ function StudentRegistrationButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+      className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800"
     >
       학생 등록
     </button>
@@ -234,7 +234,7 @@ export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
         <TabPreview tabs={["기본 정보", "보호자 연락처", "수강 정보 준비 중", "출석 기록 준비 중", "청구서/수강료 준비 중", "재원생 상담 준비 중"]} />
 
         {errorMessage ? (
-          <p className="rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+          <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
             {errorMessage}
           </p>
         ) : null}
@@ -372,12 +372,12 @@ export function AcademyTeachersPage() {
     >
       <div className="space-y-6">
         {errorMessage ? (
-          <div className="flex flex-col gap-3 rounded-md border border-red-100 bg-red-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="whitespace-pre-line text-sm font-semibold text-red-600">{errorMessage}</p>
             <button
               type="button"
               onClick={loadTeachers}
-              className="inline-flex h-10 items-center justify-center rounded-md border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50"
             >
               다시 시도
             </button>
@@ -407,7 +407,7 @@ export function AcademyTeachersPage() {
           ) : null}
 
           {teachers.length > 0 ? (
-            <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
+            <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200">
               <div className="grid bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-500 md:grid-cols-[1fr_1.4fr_1fr_1fr_0.8fr]">
                 <span>이름</span>
                 <span>이메일</span>
@@ -451,7 +451,7 @@ export function AcademyTeachersPage() {
           ) : (
             <div className="mt-5 grid gap-3">
               {invitations.map((invitation) => (
-                <div key={invitation.invitationId} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div key={invitation.invitationId} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <h3 className="font-bold text-slate-950">{invitation.teacherPhone}</h3>
@@ -491,7 +491,7 @@ export function AcademyTeacherNewPage() {
       <AcademyCard>
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-950">선생님 초대장 보내기</h2>
+            <h2 className="text-lg font-bold text-slate-950">선생님 초대 보내기</h2>
             <p className="mt-1 text-sm text-slate-600">직접 접근한 경우에도 이 화면에서 초대장을 보낼 수 있습니다.</p>
           </div>
           <AcademyLinkButton href="/academy/teachers">선생님 관리로 이동</AcademyLinkButton>
@@ -513,17 +513,17 @@ function AcademyTeacherInvitationModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-3 py-4 sm:items-center">
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-2xl">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
         <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold text-slate-950">선생님 초대</h2>
-              <p className="mt-1 text-sm text-slate-600">이메일과 전화번호로 학원 연결 초대장을 보냅니다.</p>
+              <p className="mt-1 text-sm text-slate-600">전화번호로 계정을 확인한 뒤 초대를 보냅니다.</p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
               aria-label="선생님 초대 닫기"
             >
               ×
@@ -666,13 +666,13 @@ function TeacherInvitationForm({
   return (
     <>
       {successMessage ? (
-        <p className="mb-5 rounded-md border border-green-100 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+        <p className="mb-5 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
           {successMessage}
         </p>
       ) : null}
 
       {errorMessage ? (
-        <p className="mb-5 whitespace-pre-line rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+        <p className="mb-5 whitespace-pre-line rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
           {errorMessage}
         </p>
       ) : null}
@@ -693,14 +693,14 @@ function TeacherInvitationForm({
             type="button"
             onClick={handleSearchCandidates}
             disabled={isSearching || !form.teacherPhone.trim()}
-            className="inline-flex h-11 items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+            className="inline-flex h-11 items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
           >
-            {isSearching ? "확인 중" : "기존 선생님 계정 확인"}
+            {isSearching ? "확인 중" : "계정 확인"}
           </button>
         </div>
 
         {hasSearched && candidates.length > 0 ? (
-          <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
             <h3 className="text-sm font-bold text-blue-900">가입된 선생님 계정을 찾았습니다.</h3>
             <p className="mt-1 text-sm text-blue-800">선택한 선생님에게 초대장을 보냅니다.</p>
             <div className="mt-3 grid gap-2">
@@ -711,7 +711,7 @@ function TeacherInvitationForm({
                     key={candidate.userId}
                     type="button"
                     onClick={() => setForm((current) => ({ ...current, teacherUserId: candidate.userId }))}
-                    className={`rounded-md border px-4 py-3 text-left transition ${
+                    className={`rounded-2xl border px-4 py-3 text-left transition ${
                       isSelected
                         ? "border-blue-600 bg-white ring-2 ring-blue-100"
                         : "border-blue-100 bg-white hover:border-blue-300"
@@ -729,7 +729,7 @@ function TeacherInvitationForm({
         ) : null}
 
         {hasSearched && candidates.length === 0 ? (
-          <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+          <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
             <h3 className="text-sm font-bold text-amber-900">가입된 선생님 계정을 찾지 못했습니다.</h3>
             <p className="mt-1 text-sm leading-6 text-amber-800">
               비회원 선생님에게 초대장을 남겨두고, 해당 전화번호로 가입하면 초대장을 확인할 수 있습니다.
@@ -742,16 +742,16 @@ function TeacherInvitationForm({
           <textarea
             value={form.message}
             onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
-            className="mt-2 min-h-28 w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            className="mt-2 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           />
         </label>
         <div className="flex justify-end">
           <button
             type="submit"
             disabled={isSending || !hasSearched || (candidates.length > 0 && !form.teacherUserId)}
-            className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
           >
-            {isSending ? "전송 중" : "초대장 보내기"}
+            {isSending ? "전송 중" : "초대 보내기"}
           </button>
         </div>
       </form>
@@ -764,7 +764,7 @@ function TeacherInvitationButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+      className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800"
     >
       선생님 초대
     </button>
@@ -945,13 +945,13 @@ export function AcademySettingsPage() {
         ) : null}
 
         {successMessage ? (
-          <p className="mb-5 rounded-md border border-green-100 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+          <p className="mb-5 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
             {successMessage}
           </p>
         ) : null}
 
         {errorMessage ? (
-          <p className="mb-5 whitespace-pre-line rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+          <p className="mb-5 whitespace-pre-line rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
             {errorMessage}
           </p>
         ) : null}
@@ -996,7 +996,7 @@ export function AcademySettingsPage() {
             <button
               type="submit"
               disabled={isSaving}
-              className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
             >
               {isSaving ? "저장 중" : "저장"}
             </button>
@@ -1028,7 +1028,7 @@ function AcademyTextField({
         required={required}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+        className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
       />
     </label>
   );
