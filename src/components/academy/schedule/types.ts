@@ -8,11 +8,10 @@ export type Classroom = {
 export type ScheduleClass = {
   id: string;
   title: string;
-  day: ScheduleDay;
+  dayOfWeek: ScheduleDay;
   startTime: string;
   endTime: string;
   classroomId: string;
   teacher: string;
   memo: string;
 };
-

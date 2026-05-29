@@ -20,7 +20,7 @@ const mockClasses: ScheduleClass[] = [
   {
     id: "middle-math-a",
     title: "중등 수학 A반",
-    day: "월",
+    dayOfWeek: "월",
     startTime: "16:00",
     endTime: "17:30",
     classroomId: "room-1",
@@ -30,7 +30,7 @@ const mockClasses: ScheduleClass[] = [
   {
     id: "high-english-b",
     title: "고등 영어 B반",
-    day: "수",
+    dayOfWeek: "월",
     startTime: "18:00",
     endTime: "20:00",
     classroomId: "room-2",
@@ -40,7 +40,7 @@ const mockClasses: ScheduleClass[] = [
   {
     id: "elementary-math-c",
     title: "초등 수학 C반",
-    day: "토",
+    dayOfWeek: "토",
     startTime: "10:00",
     endTime: "11:30",
     classroomId: "room-1",
@@ -51,7 +51,7 @@ const mockClasses: ScheduleClass[] = [
 
 type ClassForm = {
   title: string;
-  day: ScheduleDay;
+  dayOfWeek: ScheduleDay;
   startTime: string;
   endTime: string;
   classroomId: string;
@@ -62,19 +62,12 @@ type ClassForm = {
 export function AcademySchedulePage() {
   const [classrooms, setClassrooms] = useState<Classroom[]>(mockClassrooms);
   const [classes, setClasses] = useState<ScheduleClass[]>(mockClasses);
-  const [roomFilter, setRoomFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<"weekly" | "room">("weekly");
-  const [selectedMobileDay, setSelectedMobileDay] = useState<ScheduleDay>("월");
+  const [selectedDay, setSelectedDay] = useState<ScheduleDay>("월");
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [setupCount, setSetupCount] = useState(3);
 
-  const visibleClasses = useMemo(() => {
-    if (roomFilter === "all") return classes;
-    return classes.filter((item) => item.classroomId === roomFilter);
-  }, [classes, roomFilter]);
-
-  const selectedRoomName = roomFilter === "all" ? "전체 강의실" : getClassroomName(classrooms, roomFilter);
+  const selectedDayClasses = useMemo(() => classes.filter((item) => item.dayOfWeek === selectedDay), [classes, selectedDay]);
 
   function createRoomsFromCount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -90,7 +83,7 @@ export function AcademySchedulePage() {
         ...form,
       },
     ]);
-    setSelectedMobileDay(form.day);
+    setSelectedDay(form.dayOfWeek);
     setIsClassModalOpen(false);
   }
 
@@ -148,66 +141,44 @@ export function AcademySchedulePage() {
         ) : null}
 
         <AcademyCard>
-          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label>
-                <span className="text-sm font-bold text-slate-700">전체 강의실</span>
-                <select
-                  value={roomFilter}
-                  onChange={(event) => setRoomFilter(event.target.value)}
-                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                >
-                  <option value="all">전체 강의실</option>
-                  {classrooms.map((room) => (
-                    <option key={room.id} value={room.id}>
-                      {room.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span className="text-sm font-bold text-slate-700">강의실별 보기</span>
-                <select
-                  value={viewMode}
-                  onChange={(event) => setViewMode(event.target.value as "weekly" | "room")}
-                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                >
-                  <option value="weekly">주간 보기</option>
-                  <option value="room">강의실별 보기</option>
-                </select>
-              </label>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-xs font-semibold text-slate-500">주간 보기</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">08:00 - 22:00 / {selectedRoomName}</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
+          <div className="space-y-4">
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {DAYS.map((day) => (
                 <button
                   key={day}
                   type="button"
-                  onClick={() => setSelectedMobileDay(day)}
-                  className={`h-10 min-w-10 rounded-2xl border px-3 text-sm font-bold transition md:hidden ${
-                    selectedMobileDay === day ? "border-blue-700 bg-blue-700 text-white" : "border-slate-200 bg-white text-slate-700"
+                  onClick={() => setSelectedDay(day)}
+                  className={`h-11 min-w-12 shrink-0 rounded-2xl border px-4 text-sm font-black transition ${
+                    selectedDay === day ? "border-blue-700 bg-blue-700 text-white shadow-lg shadow-blue-200/70" : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                   }`}
                 >
                   {day}
                 </button>
               ))}
             </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-semibold text-slate-500">선택 요일</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{selectedDay}요일 시간표</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-semibold text-slate-500">시간 범위</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">08:00 - 22:00</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-semibold text-slate-500">강의실 열</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{classrooms.length}개 강의실</p>
+              </div>
+            </div>
           </div>
         </AcademyCard>
 
         <div className="hidden md:block">
-          <ScheduleGrid classrooms={classrooms} classes={visibleClasses} viewMode={viewMode} />
+          <ScheduleGrid day={selectedDay} classrooms={classrooms} classes={selectedDayClasses} />
         </div>
 
         <div className="md:hidden">
-          <ScheduleMobileDayView
-            day={selectedMobileDay}
-            classes={visibleClasses.filter((item) => item.day === selectedMobileDay)}
-            classrooms={classrooms}
-          />
+          <ScheduleMobileDayView day={selectedDay} classes={selectedDayClasses} classrooms={classrooms} />
         </div>
       </div>
 
@@ -217,7 +188,6 @@ export function AcademySchedulePage() {
           classes={classes}
           onChangeClassrooms={(nextClassrooms) => {
             setClassrooms(nextClassrooms);
-            if (roomFilter !== "all" && !nextClassrooms.some((room) => room.id === roomFilter)) setRoomFilter("all");
           }}
           onClose={() => setIsRoomModalOpen(false)}
         />
@@ -230,20 +200,26 @@ export function AcademySchedulePage() {
   );
 }
 
-function ScheduleGrid({ classrooms, classes, viewMode }: { classrooms: Classroom[]; classes: ScheduleClass[]; viewMode: "weekly" | "room" }) {
+function ScheduleGrid({ day, classrooms, classes }: { day: ScheduleDay; classrooms: Classroom[]; classes: ScheduleClass[] }) {
   const hourLabels = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => START_HOUR + index);
-  const gridMinWidth = viewMode === "room" ? "min-w-[980px]" : "min-w-[1120px]";
+  const minWidth = 72 + Math.max(classrooms.length, 1) * 180;
 
   return (
     <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
-      <div className={`${gridMinWidth} grid grid-cols-[72px_repeat(7,minmax(128px,1fr))]`}>
+      <div className="grid" style={{ gridTemplateColumns: `72px repeat(${Math.max(classrooms.length, 1)}, minmax(160px, 1fr))`, minWidth }}>
         <div className="sticky left-0 z-10 border-b border-r border-slate-200 bg-slate-50 p-3 text-xs font-bold text-slate-500">시간</div>
-        {DAYS.map((day) => (
-          <div key={day} className="border-b border-r border-slate-200 bg-slate-50 p-3 text-center">
-            <p className="text-sm font-black text-slate-950">{day}</p>
-            <p className="mt-1 text-xs font-semibold text-slate-500">{viewMode === "room" ? "강의실별 수업" : "전체 수업"}</p>
+        {classrooms.map((room) => (
+          <div key={room.id} className="border-b border-r border-slate-200 bg-slate-50 p-3 text-center">
+            <p className="text-sm font-black text-slate-950">{room.name}</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">{day}요일</p>
           </div>
         ))}
+        {classrooms.length === 0 ? (
+          <div className="border-b border-r border-slate-200 bg-slate-50 p-3 text-center">
+            <p className="text-sm font-black text-slate-950">강의실 없음</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">강의실을 추가해 주세요</p>
+          </div>
+        ) : null}
 
         <div className="sticky left-0 z-10 border-r border-slate-200 bg-white">
           <div className="relative h-[840px]">
@@ -255,29 +231,35 @@ function ScheduleGrid({ classrooms, classes, viewMode }: { classrooms: Classroom
           </div>
         </div>
 
-        {DAYS.map((day) => (
-          <div key={day} className="relative h-[840px] border-r border-slate-200 bg-white">
+        {classrooms.map((room) => (
+          <div key={room.id} className="relative h-[840px] border-r border-slate-200 bg-white">
             {hourLabels.map((hour) => (
               <div key={hour} className="absolute left-0 right-0 border-t border-slate-100" style={{ top: `${((hour - START_HOUR) / (END_HOUR - START_HOUR)) * 100}%` }} />
             ))}
             {classes
-              .filter((item) => item.day === day)
+              .filter((item) => item.classroomId === room.id)
               .map((item, index) => (
                 <ScheduleClassCard
                   key={item.id}
                   scheduleClass={item}
-                  classroomName={getClassroomName(classrooms, item.classroomId)}
                   offsetIndex={index}
                 />
               ))}
           </div>
         ))}
+        {classrooms.length === 0 ? (
+          <div className="relative h-[840px] border-r border-slate-200 bg-white">
+            {hourLabels.map((hour) => (
+              <div key={hour} className="absolute left-0 right-0 border-t border-slate-100" style={{ top: `${((hour - START_HOUR) / (END_HOUR - START_HOUR)) * 100}%` }} />
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );
 }
 
-function ScheduleClassCard({ scheduleClass, classroomName, offsetIndex }: { scheduleClass: ScheduleClass; classroomName: string; offsetIndex: number }) {
+function ScheduleClassCard({ scheduleClass, offsetIndex }: { scheduleClass: ScheduleClass; offsetIndex: number }) {
   const start = timeToMinutes(scheduleClass.startTime) - START_HOUR * 60;
   const end = timeToMinutes(scheduleClass.endTime) - START_HOUR * 60;
   const top = Math.max(0, (start / TOTAL_MINUTES) * 100);
@@ -290,8 +272,7 @@ function ScheduleClassCard({ scheduleClass, classroomName, offsetIndex }: { sche
       className={`absolute left-2 right-2 rounded-xl border p-3 shadow-lg shadow-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-xl ${palette[offsetIndex % palette.length]}`}
       style={{ top: `${top}%`, height: `${height}%` }}
     >
-      <span className="inline-flex rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-bold">{classroomName}</span>
-      <h3 className="mt-2 line-clamp-2 text-sm font-black">{scheduleClass.title}</h3>
+      <h3 className="line-clamp-2 text-sm font-black">{scheduleClass.title}</h3>
       <p className="mt-1 text-xs font-semibold opacity-80">{scheduleClass.teacher}</p>
       <p className="mt-1 text-xs font-bold opacity-90">
         {scheduleClass.startTime} - {scheduleClass.endTime}
@@ -307,26 +288,41 @@ function ScheduleMobileDayView({ day, classes, classrooms }: { day: ScheduleDay;
         <p className="text-xs font-bold uppercase text-blue-600">선택 요일</p>
         <h2 className="mt-1 text-xl font-black text-slate-950">{day}요일 수업</h2>
       </div>
-      {classes.length === 0 ? (
+      {classrooms.length === 0 ? (
+        <EmptyState title="강의실이 없습니다." description="강의실 관리에서 먼저 강의실을 추가해 주세요." />
+      ) : classes.length === 0 ? (
         <EmptyState title="이 요일에 등록된 수업이 없습니다." description="수업 추가 버튼으로 강의실과 시간을 지정해 보세요." />
       ) : (
-        classes
-          .slice()
-          .sort((a, b) => a.startTime.localeCompare(b.startTime))
-          .map((item) => (
-            <Link key={item.id} href={`/academy/schedule/${item.id}`} className="block rounded-3xl border border-white/80 bg-white/95 p-5 shadow-xl shadow-slate-200/60 transition hover:-translate-y-0.5 hover:border-blue-100">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <StatusBadge>{getClassroomName(classrooms, item.classroomId)}</StatusBadge>
-                  <h3 className="mt-3 text-lg font-black text-slate-950">{item.title}</h3>
-                  <p className="mt-2 text-sm font-semibold text-slate-600">{item.teacher}</p>
+        classrooms.map((room) => {
+          const roomClasses = classes
+            .filter((item) => item.classroomId === room.id)
+            .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+          return (
+            <section key={room.id} className="rounded-3xl border border-white/80 bg-white/95 p-5 shadow-xl shadow-slate-200/60">
+              <h3 className="text-base font-black text-slate-950">{room.name}</h3>
+              {roomClasses.length === 0 ? (
+                <p className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">등록된 수업이 없습니다.</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {roomClasses.map((item) => (
+                    <Link key={item.id} href={`/academy/schedule/${item.id}`} className="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition hover:border-blue-200 hover:bg-blue-50">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black text-slate-950">{item.title}</p>
+                          <p className="mt-1 text-xs font-semibold text-slate-600">{item.teacher}</p>
+                        </div>
+                        <p className="shrink-0 rounded-2xl bg-white px-3 py-1.5 text-xs font-black text-slate-700">
+                          {item.startTime} - {item.endTime}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
                 </div>
-                <p className="shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700">
-                  {item.startTime} - {item.endTime}
-                </p>
-              </div>
-            </Link>
-          ))
+              )}
+            </section>
+          );
+        })
       )}
     </div>
   );
@@ -395,7 +391,7 @@ function ClassroomManagerModal({
 function ClassCreateModal({ classrooms, onCreate, onClose }: { classrooms: Classroom[]; onCreate: (form: ClassForm) => void; onClose: () => void }) {
   const [form, setForm] = useState<ClassForm>({
     title: "",
-    day: "월",
+    dayOfWeek: "월",
     startTime: "16:00",
     endTime: "17:30",
     classroomId: classrooms[0]?.id ?? "",
@@ -417,7 +413,7 @@ function ClassCreateModal({ classrooms, onCreate, onClose }: { classrooms: Class
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="요일">
-            <select value={form.day} onChange={(event) => setForm({ ...form, day: event.target.value as ScheduleDay })} className={inputClassName}>
+            <select value={form.dayOfWeek} onChange={(event) => setForm({ ...form, dayOfWeek: event.target.value as ScheduleDay })} className={inputClassName}>
               {DAYS.map((day) => (
                 <option key={day} value={day}>
                   {day}
@@ -471,7 +467,7 @@ export function AcademyScheduleNewPage() {
     <AcademyShell title="시간표 생성" description="수업 생성은 시간표 관리 화면에서 모달로 진행합니다.">
       <EmptyState
         title="시간표 관리 화면에서 수업을 추가해 주세요."
-        description="주간 시간표를 보면서 강의실, 요일, 시간을 지정하는 흐름으로 정리했습니다."
+        description="요일을 선택한 뒤 강의실, 시간, 담당 선생님을 지정하는 흐름으로 정리했습니다."
         action={<AcademyLinkButton href="/academy/schedule">시간표 관리로 이동</AcademyLinkButton>}
       />
     </AcademyShell>
@@ -489,7 +485,7 @@ export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
         <AcademyCard>
           <div className="grid gap-4 md:grid-cols-2">
             <DetailItem label="수업명" value={scheduleClass.title} />
-            <DetailItem label="요일/시간" value={`${scheduleClass.day} ${scheduleClass.startTime} - ${scheduleClass.endTime}`} />
+            <DetailItem label="요일/시간" value={`${scheduleClass.dayOfWeek} ${scheduleClass.startTime} - ${scheduleClass.endTime}`} />
             <DetailItem label="강의실" value={classroomName} />
             <DetailItem label="담당 선생님" value={scheduleClass.teacher} />
           </div>
