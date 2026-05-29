@@ -133,7 +133,7 @@ export function AcademyStudentRegistrationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-3 py-4 sm:items-center">
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-white shadow-2xl">
+      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
         <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -143,7 +143,7 @@ export function AcademyStudentRegistrationModal({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
               aria-label="학생 등록 닫기"
             >
               ×
@@ -257,7 +257,7 @@ function StudentRegistrationInfoStep({
         <textarea
           value={form.memo || ""}
           onChange={(event) => onFormChange({ ...form, memo: event.target.value })}
-          className="mt-2 min-h-24 w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
         />
       </label>
 
@@ -267,7 +267,7 @@ function StudentRegistrationInfoStep({
           type="button"
           onClick={onSearch}
           disabled={isSearching || !form.name}
-          className="inline-flex h-11 items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-6 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          className="inline-flex h-11 items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 px-6 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
         >
           {isSearching ? "검색 중..." : "기존 학생 계정 확인"}
         </button>
@@ -311,7 +311,7 @@ function StudentAccountCandidateStep({
       </div>
 
       {candidateNotice ? (
-        <p className="rounded-md border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+        <p className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
           {candidateNotice}
         </p>
       ) : null}
@@ -328,7 +328,7 @@ function StudentAccountCandidateStep({
       ) : null}
 
       {hasSearched && candidates.length === 0 ? (
-        <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+        <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
           {candidateRole === "PARENT"
             ? "일치하는 보호자 계정이 없습니다. 보호자 전화번호는 연락처로만 저장됩니다."
             : "일치하는 학생 계정이 없습니다."}
@@ -339,7 +339,7 @@ function StudentAccountCandidateStep({
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
         >
           정보 수정
         </button>
@@ -347,7 +347,7 @@ function StudentAccountCandidateStep({
           type="button"
           disabled={isSending}
           onClick={onRegisterNonMember}
-          className="inline-flex h-11 items-center justify-center rounded-md bg-slate-700 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-400"
+          className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-700 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-400"
         >
           {isSending
             ? "처리 중..."
@@ -379,7 +379,7 @@ function CandidateList({
           : `일치하는 ${candidateRole === "STUDENT" ? "학생" : "보호자"} 계정이 ${candidates.length}건 있습니다.`}
       </p>
       {candidates.map((candidate) => (
-        <div key={candidate.userId} className="flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div key={candidate.userId} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="font-bold text-slate-950">{candidate.name}</p>
             <p className="mt-1 break-all text-xs text-slate-500">
@@ -391,12 +391,12 @@ function CandidateList({
               type="button"
               disabled={isSending}
               onClick={() => onSendInvitation(candidate)}
-              className="inline-flex h-10 shrink-0 items-center justify-center rounded-md bg-blue-700 px-4 text-xs font-semibold text-white transition hover:bg-blue-800 disabled:bg-slate-400"
+              className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl bg-blue-700 px-4 text-xs font-semibold text-white transition hover:bg-blue-800 disabled:bg-slate-400"
             >
-              초대장 보내기
+              초대 보내기
             </button>
           ) : (
-            <span className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
+            <span className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
               {candidates.length === 1 ? "등록 시 함께 연결" : "수동 연락처로 저장"}
             </span>
           )}
@@ -420,7 +420,7 @@ function StudentRegistrationCompleteStep({
       <div>
         <h3 className="text-base font-bold text-slate-950">Step 3. 완료</h3>
         {successMessage ? (
-          <p className="mt-3 rounded-md border border-green-100 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+          <p className="mt-3 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
             {successMessage}
           </p>
         ) : null}
@@ -430,14 +430,14 @@ function StudentRegistrationCompleteStep({
         <button
           type="button"
           onClick={onReset}
-          className="inline-flex h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
         >
           계속 등록
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white transition hover:bg-blue-800"
+          className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-5 text-sm font-semibold text-white transition hover:bg-blue-800"
         >
           닫기
         </button>
@@ -464,7 +464,7 @@ function AcademyTextField({
         value={value}
         required={required}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+        className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
       />
     </label>
   );
@@ -472,7 +472,7 @@ function AcademyTextField({
 
 function ErrorMessage({ message }: { message: string }) {
   return (
-    <p className="whitespace-pre-line rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+    <p className="whitespace-pre-line rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
       {message}
     </p>
   );
@@ -480,8 +480,8 @@ function ErrorMessage({ message }: { message: string }) {
 
 function getModalStepClass(isActive: boolean) {
   return isActive
-    ? "rounded-md bg-blue-50 px-2 py-2 text-blue-700"
-    : "rounded-md bg-slate-50 px-2 py-2 text-slate-400";
+    ? "rounded-2xl bg-blue-50 px-2 py-2 text-blue-700"
+    : "rounded-2xl bg-slate-50 px-2 py-2 text-slate-400";
 }
 
 function getErrorMessage(error: unknown) {

@@ -10,7 +10,7 @@ export default function AdminPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Link
           href="/admin/academy-accounts"
-          className="rounded-lg border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/60 transition hover:border-blue-300 hover:bg-blue-50"
+          className="rounded-3xl border border-white/80 bg-white/95 p-6 shadow-xl shadow-blue-100/60 transition hover:-translate-y-1 hover:border-blue-100 hover:bg-blue-50"
         >
           <p className="text-sm font-semibold uppercase text-blue-600">Academy Accounts</p>
           <h2 className="mt-3 text-xl font-bold text-slate-950">학원 계정 관리</h2>
@@ -20,7 +20,7 @@ export default function AdminPage() {
         </Link>
         <Link
           href="/admin/academy-accounts/new"
-          className="rounded-lg border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/60 transition hover:border-blue-300 hover:bg-blue-50"
+          className="rounded-3xl border border-white/80 bg-white/95 p-6 shadow-xl shadow-blue-100/60 transition hover:-translate-y-1 hover:border-blue-100 hover:bg-blue-50"
         >
           <p className="text-sm font-semibold uppercase text-blue-600">Create</p>
           <h2 className="mt-3 text-xl font-bold text-slate-950">학원 계정 생성</h2>
@@ -30,7 +30,7 @@ export default function AdminPage() {
         </Link>
         <Link
           href="/admin/academy-signup-applications"
-          className="rounded-lg border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/60 transition hover:border-blue-300 hover:bg-blue-50"
+          className="rounded-3xl border border-white/80 bg-white/95 p-6 shadow-xl shadow-blue-100/60 transition hover:-translate-y-1 hover:border-blue-100 hover:bg-blue-50"
         >
           <p className="text-sm font-semibold uppercase text-blue-600">Approval</p>
           <h2 className="mt-3 text-xl font-bold text-slate-950">학원 가입 승인 대기</h2>

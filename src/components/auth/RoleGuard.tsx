@@ -42,9 +42,9 @@ export function RoleGuard({ allowedRole, children }: RoleGuardProps) {
 
 function GuardStatus({ message }: { message: string }) {
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#e9efff_0,#f7f9ff_42%,#ffffff_100%)] px-5 py-8 text-slate-900">
+    <main className="min-h-screen px-5 py-8 text-slate-900">
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center">
-        <p className="rounded-md border border-blue-100 bg-white px-5 py-4 text-sm font-semibold text-slate-600 shadow-lg shadow-blue-100/50">
+        <p className="rounded-2xl border border-blue-100 bg-white px-5 py-4 text-sm font-semibold text-slate-600 shadow-lg shadow-blue-100/50">
           {message}
         </p>
       </section>

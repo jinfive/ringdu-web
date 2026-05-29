@@ -136,14 +136,14 @@ export function AcademyDashboard() {
       actions={<AcademyLinkButton href="/academy/students">학생 등록</AcademyLinkButton>}
     >
       <div className="space-y-8">
-        <AcademyCard>
+        <AcademyCard className="overflow-hidden">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <StatusBadge>{academy?.status === "ACTIVE" ? "운영 중" : "정보 확인 중"}</StatusBadge>
-              <h2 className="mt-3 text-2xl font-bold text-slate-950">학원 운영자 홈</h2>
+              <h2 className="mt-3 text-3xl font-black text-slate-950">학원 운영자 홈</h2>
               <p className="mt-2 text-sm font-medium text-slate-600">{today}</p>
             </div>
-            <div className="rounded-md bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 px-5 py-4 text-sm text-slate-600">
               <p className="font-semibold text-slate-900">{academy?.name ?? "학원 정보 로딩 중"}</p>
               <p className="mt-1">{academy?.representativeName ? `대표자 ${academy.representativeName}` : "내 학원 정보를 확인하고 있습니다."}</p>
             </div>
@@ -163,7 +163,7 @@ export function AcademyDashboard() {
               <button
                 type="button"
                 onClick={loadDashboard}
-                className="inline-flex h-10 items-center justify-center rounded-md border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50"
               >
                 다시 시도
               </button>
@@ -173,9 +173,9 @@ export function AcademyDashboard() {
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {summaryItems.map((item) => (
-            <AcademyCard key={item.label}>
+            <AcademyCard key={item.label} className="transition hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-blue-100/60">
               <p className="text-sm font-semibold text-slate-500">{item.label}</p>
-              <p className="mt-3 text-3xl font-bold text-slate-950">{item.value}</p>
+              <p className="mt-3 text-4xl font-black text-slate-950">{item.value}</p>
             </AcademyCard>
           ))}
         </section>
@@ -197,14 +197,14 @@ export function AcademyDashboard() {
                   <Link
                     key={`${notification.title}-${notification.targetPath}`}
                     href={notification.targetPath}
-                    className="block rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 transition hover:border-blue-200 hover:bg-blue-50"
+                    className="block rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 text-sm text-slate-700 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50"
                   >
                     <span className="font-bold text-slate-900">{notification.title}</span>
                     <span className="mt-1 block">{notification.message}</span>
                   </Link>
                 ))
               ) : (
-                <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-4 py-4 text-sm text-slate-700">
                   확인할 미처리 알림이 없습니다.
                 </div>
               )}
@@ -221,7 +221,7 @@ export function AcademyDashboard() {
                 <Link
                   key={action.href}
                   href={action.href}
-                  className="rounded-md border border-slate-200 bg-white px-4 py-4 text-sm font-bold text-slate-900 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm font-bold text-slate-900 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                 >
                   {action.label}
                 </Link>
@@ -242,7 +242,7 @@ export function AcademyDashboard() {
               <Link
                 key={menu.href}
                 href={menu.href}
-                className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+                className="rounded-3xl border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-200/60 transition hover:-translate-y-1 hover:border-blue-100 hover:shadow-2xl hover:shadow-blue-100/60"
               >
                 <h3 className="text-lg font-bold text-slate-950">{menu.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-slate-600">{menu.description}</p>

@@ -115,13 +115,13 @@ export function SignupForm({
       </Field>
 
       {notice ? (
-        <p className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
+        <p className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
           {notice}
         </p>
       ) : null}
 
       {errorMessage ? (
-        <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+        <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
           {errorMessage}
         </p>
       ) : null}
@@ -129,7 +129,7 @@ export function SignupForm({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="h-12 w-full rounded-md bg-blue-700 px-4 text-base font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300"
+        className="h-12 w-full rounded-2xl bg-blue-700 px-4 text-base font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300 disabled:shadow-none"
       >
         {isSubmitting ? "가입 처리 중" : submitLabel}
       </button>
@@ -138,7 +138,7 @@ export function SignupForm({
 }
 
 export const inputClassName =
-  "h-12 w-full rounded-md border border-slate-200 bg-white px-4 text-base text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100";
+  "h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-base text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100";
 
 function Field({
   label,
