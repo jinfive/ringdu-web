@@ -33,6 +33,11 @@ import {
   TabPreview,
 } from "./AcademyShell";
 import { AcademyStudentRegistrationModal } from "./AcademyStudentRegistrationModal";
+export {
+  AcademyScheduleDetailPage,
+  AcademyScheduleNewPage,
+  AcademySchedulePage,
+} from "./schedule/AcademySchedulePage";
 
 export function AcademyStudentsPage() {
   const { accessToken, user } = useAuth();
@@ -763,75 +768,6 @@ function TeacherInvitationButton({ onClick }: { onClick: () => void }) {
     >
       선생님 초대
     </button>
-  );
-}
-
-export function AcademySchedulePage() {
-  return (
-    <AcademyShell
-      title="시간표 관리"
-      description="요일별 수업과 담당 선생님을 확인하고 수업 상세로 이동합니다."
-      actions={<AcademyLinkButton href="/academy/schedule/new">시간표 생성</AcademyLinkButton>}
-    >
-      <div className="space-y-6">
-        <AcademyCard>
-          <div className="grid gap-3 md:grid-cols-3">
-            <FieldPreview label="요일" value="전체" />
-            <FieldPreview label="선생님" value="전체" />
-            <FieldPreview label="상태" value="운영 중" />
-          </div>
-        </AcademyCard>
-        <Link href="/academy/schedule/sample-class" className="block rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <StatusBadge>예시</StatusBadge>
-              <h2 className="mt-3 text-xl font-bold text-slate-950">중2 수학 A반</h2>
-              <p className="mt-2 text-sm text-slate-600">월/수 18:00 - 20:00</p>
-            </div>
-            <div className="text-sm leading-6 text-slate-600">
-              <p>담당 선생님 미지정</p>
-              <p>수강 학생 0명</p>
-            </div>
-          </div>
-        </Link>
-      </div>
-    </AcademyShell>
-  );
-}
-
-export function AcademyScheduleNewPage() {
-  return (
-    <AcademyShell title="시간표 생성" description="수업명, 요일, 시간, 담당 선생님을 입력해 시간표를 만드는 화면입니다.">
-      <div className="space-y-6">
-        <AcademyCard>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {["수업명", "담당 선생님", "요일", "시작 시간", "종료 시간", "강의실", "수강 학생", "메모"].map((field) => (
-              <FieldPreview key={field} label={field} value="준비 중" />
-            ))}
-          </div>
-        </AcademyCard>
-        <EmptyState
-          title="시간표 생성 기능은 준비 중입니다."
-          description="수업명, 요일, 시간, 담당 선생님을 입력해 시간표를 만들 수 있도록 준비하고 있습니다."
-        />
-      </div>
-    </AcademyShell>
-  );
-}
-
-export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
-  return (
-    <AcademyShell title="수업/클래스 상세 관리" description={`시간표에서 선택한 수업 ${classId}의 상세 관리 화면입니다.`}>
-      <div className="space-y-6">
-        <TabPreview tabs={["기본 정보", "수강 학생", "시간표", "출석 기록", "숙제", "공지"]} />
-        <AcademyCard>
-          <h2 className="text-xl font-bold text-slate-950">클래스 관리는 이 화면에서 처리합니다.</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            독립적인 클래스 관리 메뉴를 두지 않고 시간표에서 특정 수업을 선택해 상세 관리로 진입합니다.
-          </p>
-        </AcademyCard>
-      </div>
-    </AcademyShell>
   );
 }
 
