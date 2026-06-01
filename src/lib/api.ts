@@ -351,6 +351,21 @@ export async function getAcademyStudents(accessToken: string): Promise<AcademySt
   });
 }
 
+export async function searchAcademyStudents(
+  keyword: string,
+  accessToken: string,
+): Promise<AcademyStudentResponse[]> {
+  const params = new URLSearchParams();
+  params.set("keyword", keyword);
+
+  return request<AcademyStudentResponse[]>(`/api/academies/me/students/search?${params.toString()}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 export async function getAcademyStudent(
   studentId: number,
   accessToken: string,
