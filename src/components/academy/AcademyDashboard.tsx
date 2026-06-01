@@ -10,15 +10,13 @@ import { AcademyCard, AcademyLinkButton, AcademyShell, StatusBadge } from "./Aca
 const registrationActions = [
   { href: "/academy/students", label: "학생 등록" },
   { href: "/academy/teachers/new", label: "선생님 초대" },
-  { href: "/academy/consultations/new", label: "신규 상담 등록" },
-  { href: "/academy/invoices", label: "청구서 생성" },
 ];
 
 const managementMenus = [
   {
     href: "/academy/students",
     title: "학생 관리",
-    description: "학생 정보, 보호자, 수강, 청구서, 재원생 상담을 한곳에서 확인합니다.",
+    description: "학생 정보, 수강 수업, 상담 메모, 청구/수납을 한 곳에서 관리합니다.",
   },
   {
     href: "/academy/teachers",
@@ -28,22 +26,7 @@ const managementMenus = [
   {
     href: "/academy/schedule",
     title: "시간표 관리",
-    description: "요일별 수업을 확인하고 특정 수업 상세로 이동합니다.",
-  },
-  {
-    href: "/academy/consultations",
-    title: "신규 상담",
-    description: "등록 전 문의와 상담 예약 상태를 관리합니다.",
-  },
-  {
-    href: "/academy/invoices",
-    title: "청구서/수납",
-    description: "학생별 청구서와 수강료 납부 상태를 확인합니다.",
-  },
-  {
-    href: "/academy/attendance",
-    title: "출석 현황",
-    description: "클래스별, 학생별 출석 기록과 지각/결석 목록을 조회합니다.",
+    description: "요일과 강의실 기준으로 수업을 배치합니다.",
   },
   {
     href: "/academy/settings",
@@ -124,8 +107,8 @@ export function AcademyDashboard() {
     return [
       { label: "등록 학생", value: `${data.studentCount}명` },
       { label: "등록 선생님", value: `${data.teacherCount}명` },
-      { label: "이번 달 미납", value: `${data.unpaidInvoiceCount}건` },
-      { label: "신규 상담 대기", value: `${data.pendingConsultationCount}건` },
+      { label: "학생 중심 관리", value: "상세 통합" },
+      { label: "시간표 기준", value: "요일/강의실" },
     ];
   }, [dashboard]);
 
@@ -186,7 +169,7 @@ export function AcademyDashboard() {
               <div>
                 <h2 className="text-xl font-bold text-slate-950">미처리 알림</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  운영자가 확인해야 할 요청과 수납 관련 항목입니다.
+                  학생, 선생님, 시간표 중심으로 확인해야 할 항목입니다.
                 </p>
               </div>
               <StatusBadge>{dashboard?.notifications.length ?? 0}건</StatusBadge>
@@ -212,9 +195,9 @@ export function AcademyDashboard() {
           </AcademyCard>
 
           <AcademyCard>
-            <h2 className="text-xl font-bold text-slate-950">등록</h2>
+            <h2 className="text-xl font-bold text-slate-950">빠른 작업</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              자주 필요한 등록 작업으로 바로 이동합니다.
+              학생과 선생님 운영에 필요한 작업으로 바로 이동합니다.
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               {registrationActions.map((action) => (
@@ -237,7 +220,7 @@ export function AcademyDashboard() {
               <p className="mt-2 text-sm text-slate-600">학원 운영 흐름에 맞춘 핵심 화면입니다.</p>
             </div>
           </div>
-          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {managementMenus.map((menu) => (
               <Link
                 key={menu.href}

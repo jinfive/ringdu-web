@@ -51,6 +51,8 @@ export type AcademyClassStudentResponse = {
   name: string;
   school: string | null;
   grade: string | null;
+  phone: string | null;
+  guardianPhone: string | null;
 };
 
 export type AcademyClassStudentRequest = {

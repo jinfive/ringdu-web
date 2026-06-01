@@ -16,9 +16,6 @@ const academyMenu = [
   { href: "/academy/students", label: "학생 관리" },
   { href: "/academy/teachers", label: "선생님 관리" },
   { href: "/academy/schedule", label: "시간표 관리" },
-  { href: "/academy/consultations", label: "신규 상담" },
-  { href: "/academy/invoices", label: "청구서/수납" },
-  { href: "/academy/attendance", label: "출석 현황" },
   { href: "/academy/settings", label: "학원 설정" },
 ];
 

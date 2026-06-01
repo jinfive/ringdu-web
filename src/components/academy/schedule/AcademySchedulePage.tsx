@@ -2,20 +2,23 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { AcademyCard, AcademyLinkButton, AcademyShell, EmptyState, StatusBadge, TabPreview } from "@/components/academy/AcademyShell";
+import { AcademyCard, AcademyLinkButton, AcademyShell, EmptyState, StatusBadge } from "@/components/academy/AcademyShell";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
+  addAcademyClassStudent,
   ApiError,
   createAcademyClass,
   createAcademyClassroom,
   deleteAcademyClassroom,
+  removeAcademyClassStudent,
   getAcademyClass,
   getAcademyClasses,
   getAcademyClassrooms,
   getAcademyTeachers,
+  searchAcademyStudents,
   updateAcademyClassroom,
 } from "@/lib/api";
-import type { AcademyTeacherResponse } from "@/types/auth";
+import type { AcademyStudentResponse, AcademyTeacherResponse } from "@/types/auth";
 import type { AcademyClassDetailResponse, AcademyClassRequest, ScheduleDayOfWeek } from "@/types/schedule";
 import type { Classroom, ScheduleClass, ScheduleDay } from "./types";
 
@@ -41,6 +44,9 @@ type ClassForm = {
   teacherUserId: string;
   memo: string;
 };
+
+type ClassDetailTab = "기본 정보" | "수강 학생" | "출석 관리 준비 중" | "숙제 관리 준비 중";
+const classDetailTabs: ClassDetailTab[] = ["기본 정보", "수강 학생", "출석 관리 준비 중", "숙제 관리 준비 중"];
 
 export function AcademySchedulePage() {
   const { accessToken, user } = useAuth();
@@ -597,6 +603,7 @@ export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
   const [scheduleClass, setScheduleClass] = useState<AcademyClassDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [activeTab, setActiveTab] = useState<ClassDetailTab>("기본 정보");
 
   const loadClass = useCallback(() => {
     if (!accessToken || isPendingApproval) return;
@@ -628,7 +635,7 @@ export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
   return (
     <AcademyShell title="수업/클래스 상세 관리" description={scheduleClass ? `${scheduleClass.name} 수업 정보를 확인합니다.` : "수업 정보를 확인합니다."}>
       <div className="space-y-6">
-        <TabPreview tabs={["기본 정보", "수강 학생", "출석 관리 준비 중", "숙제 관리 준비 중"]} />
+        <ClassDetailTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
         {errorMessage ? <ErrorBanner message={errorMessage} onRetry={loadClass} /> : null}
         {isLoading ? (
@@ -639,7 +646,8 @@ export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
 
         {scheduleClass ? (
           <>
-            <AcademyCard>
+            {activeTab === "기본 정보" ? (
+              <AcademyCard>
               <div className="grid gap-4 md:grid-cols-2">
                 <DetailItem label="수업명" value={scheduleClass.name} />
                 <DetailItem label="요일/시간" value={`${scheduleClass.dayLabel} ${scheduleClass.startTime} - ${scheduleClass.endTime}`} />
@@ -648,44 +656,296 @@ export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
                 <DetailItem label="수강 학생 수" value={`${scheduleClass.studentCount}명`} />
                 <DetailItem label="메모" value={scheduleClass.memo || "메모 없음"} />
               </div>
-            </AcademyCard>
-            <AcademyCard>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-950">수강 학생</h2>
-                  <p className="mt-1 text-sm text-slate-600">학생 추가/삭제 UX는 다음 단계에서 확장합니다.</p>
-                </div>
-                <StatusBadge>{scheduleClass.studentCount}명</StatusBadge>
-              </div>
-              {scheduleClass.students.length === 0 ? (
-                <p className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
-                  아직 등록된 수강 학생이 없습니다.
-                </p>
-              ) : (
-                <div className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200">
-                  {scheduleClass.students.map((student) => (
-                    <div key={student.studentProfileId} className="grid gap-2 bg-white px-4 py-3 text-sm sm:grid-cols-[1fr_1fr]">
-                      <span className="font-bold text-slate-950">{student.name}</span>
-                      <span className="font-semibold text-slate-600">
-                        {student.school || "학교 미입력"} / {student.grade || "학년 미입력"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </AcademyCard>
-            <div className="grid gap-4 md:grid-cols-2">
-              {["출석 관리 준비 중", "숙제 관리 준비 중"].map((title) => (
-                <AcademyCard key={title}>
-                  <h2 className="text-lg font-bold text-slate-950">{title}</h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">이번 작업에서는 실제 기능을 구현하지 않고 상세 화면 진입 구조만 유지합니다.</p>
-                </AcademyCard>
-              ))}
-            </div>
+              </AcademyCard>
+            ) : null}
+
+            {activeTab === "수강 학생" ? (
+              <ClassStudentsPanel
+                scheduleClass={scheduleClass}
+                accessToken={accessToken}
+                onChanged={loadClass}
+              />
+            ) : null}
+
+            {activeTab === "출석 관리 준비 중" || activeTab === "숙제 관리 준비 중" ? (
+              <AcademyCard>
+                <h2 className="text-lg font-bold text-slate-950">{activeTab}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">이번 작업에서는 실제 기능을 구현하지 않고 상세 화면 진입 구조만 유지합니다.</p>
+              </AcademyCard>
+            ) : null}
           </>
         ) : null}
       </div>
     </AcademyShell>
+  );
+}
+
+function ClassDetailTabs({
+  activeTab,
+  onTabChange,
+}: {
+  activeTab: ClassDetailTab;
+  onTabChange: (tab: ClassDetailTab) => void;
+}) {
+  return (
+    <div className="max-w-full overflow-x-auto rounded-3xl border border-slate-200 bg-white p-2 [scrollbar-width:thin]">
+      <div className="flex w-max max-w-none gap-1.5 whitespace-nowrap pr-2">
+        {classDetailTabs.map((tab) => {
+          const isActive = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => onTabChange(tab)}
+              className={`h-9 shrink-0 rounded-2xl px-3 text-xs font-bold transition sm:h-10 sm:px-4 sm:text-sm ${
+                isActive
+                  ? "bg-blue-700 text-white shadow-lg shadow-blue-100"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+              }`}
+            >
+              {tab}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ClassStudentsPanel({
+  scheduleClass,
+  accessToken,
+  onChanged,
+}: {
+  scheduleClass: AcademyClassDetailResponse;
+  accessToken: string | null;
+  onChanged: () => void;
+}) {
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [removingStudentId, setRemovingStudentId] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleRemoveStudent = async (studentProfileId: number) => {
+    if (!accessToken) return;
+    const confirmed = window.confirm("이 학생을 수업에서 제외할까요?");
+    if (!confirmed) return;
+
+    setRemovingStudentId(studentProfileId);
+    setErrorMessage("");
+    try {
+      await removeAcademyClassStudent(scheduleClass.classId, studentProfileId, accessToken);
+      onChanged();
+    } catch (error) {
+      setErrorMessage(getScheduleErrorMessage(error));
+    } finally {
+      setRemovingStudentId(null);
+    }
+  };
+
+  return (
+    <AcademyCard>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-950">수강 학생</h2>
+          <p className="mt-1 text-sm text-slate-600">이 수업을 듣는 학생을 검색해 추가하거나 제외합니다.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <StatusBadge>{scheduleClass.studentCount}명</StatusBadge>
+          <button
+            type="button"
+            onClick={() => setIsSearchOpen(true)}
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-800"
+          >
+            학생 추가
+          </button>
+        </div>
+      </div>
+
+      {errorMessage ? (
+        <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+          {errorMessage}
+        </p>
+      ) : null}
+
+      {scheduleClass.students.length === 0 ? (
+        <div className="mt-4 rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-5 py-6">
+          <h3 className="text-lg font-bold text-slate-950">아직 수강 학생이 없습니다.</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">이 수업을 듣는 학생을 추가해 보세요.</p>
+          <button
+            type="button"
+            onClick={() => setIsSearchOpen(true)}
+            className="mt-5 inline-flex h-10 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800"
+          >
+            학생 추가
+          </button>
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-3">
+          {scheduleClass.students.map((student) => (
+            <div key={student.studentProfileId} className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <DetailItem label="이름" value={student.name} />
+                  <DetailItem label="학교/학년" value={`${student.school || "학교 미입력"} / ${student.grade || "학년 미입력"}`} />
+                  <DetailItem label="학생 연락처" value={student.phone || "연락처 없음"} />
+                  <DetailItem label="보호자 연락처" value={student.guardianPhone || "연락처 없음"} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleRemoveStudent(student.studentProfileId)}
+                  disabled={removingStudentId === student.studentProfileId}
+                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl border border-red-100 bg-white px-4 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  {removingStudentId === student.studentProfileId ? "제외 중" : "수업에서 제외"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isSearchOpen ? (
+        <ClassStudentSearchModal
+          scheduleClass={scheduleClass}
+          accessToken={accessToken}
+          onClose={() => setIsSearchOpen(false)}
+          onCompleted={() => {
+            setIsSearchOpen(false);
+            onChanged();
+          }}
+        />
+      ) : null}
+    </AcademyCard>
+  );
+}
+
+function ClassStudentSearchModal({
+  scheduleClass,
+  accessToken,
+  onClose,
+  onCompleted,
+}: {
+  scheduleClass: AcademyClassDetailResponse;
+  accessToken: string | null;
+  onClose: () => void;
+  onCompleted: () => void;
+}) {
+  const [keyword, setKeyword] = useState("");
+  const [students, setStudents] = useState<AcademyStudentResponse[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [addingStudentId, setAddingStudentId] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const enrolledStudentIds = new Set(scheduleClass.students.map((student) => student.studentProfileId));
+
+  const handleSearch = async () => {
+    if (!accessToken) return;
+    const trimmedKeyword = keyword.trim();
+    setHasSearched(true);
+    setErrorMessage("");
+
+    if (!trimmedKeyword) {
+      setStudents([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const data = await searchAcademyStudents(trimmedKeyword, accessToken);
+      setStudents(data);
+    } catch (error) {
+      setStudents([]);
+      setErrorMessage(getScheduleErrorMessage(error));
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleAddStudent = async (student: AcademyStudentResponse) => {
+    if (!accessToken || enrolledStudentIds.has(student.id)) return;
+
+    setAddingStudentId(student.id);
+    setErrorMessage("");
+    try {
+      await addAcademyClassStudent(scheduleClass.classId, student.id, accessToken);
+      onCompleted();
+    } catch (error) {
+      setErrorMessage(getScheduleErrorMessage(error));
+    } finally {
+      setAddingStudentId(null);
+    }
+  };
+
+  return (
+    <ModalFrame title="학생 추가" description="학생 이름으로 검색해 이 수업에 추가합니다." onClose={onClose}>
+      <div className="space-y-4">
+        <form
+          className="flex flex-col gap-3 sm:flex-row"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleSearch();
+          }}
+        >
+          <input
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            placeholder="학생 이름을 입력하세요."
+            className={`${inputClassName} h-11 flex-1`}
+          />
+          <button
+            type="submit"
+            disabled={isSearching}
+            className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          >
+            {isSearching ? "검색 중" : "검색"}
+          </button>
+        </form>
+
+        {errorMessage ? (
+          <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+            {errorMessage}
+          </p>
+        ) : null}
+
+        {hasSearched && !isSearching && students.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
+            검색 결과가 없습니다.
+          </p>
+        ) : null}
+
+        <div className="grid gap-3">
+          {students.map((student) => {
+            const alreadyEnrolled = enrolledStudentIds.has(student.id);
+            return (
+              <div key={student.id} className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-950">{student.name}</h3>
+                    <p className="mt-2 text-sm font-semibold text-slate-600">
+                      {student.school || "학교 미입력"} / {student.grade || "학년 미입력"}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">학생 연락처 {student.phone || "연락처 없음"}</p>
+                    <p className="mt-1 text-sm text-slate-600">보호자 연락처 {student.guardianPhone || "연락처 없음"}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleAddStudent(student)}
+                    disabled={alreadyEnrolled || addingStudentId !== null}
+                    className={`inline-flex h-10 shrink-0 items-center justify-center rounded-2xl px-4 text-sm font-bold transition ${
+                      alreadyEnrolled
+                        ? "cursor-not-allowed bg-slate-200 text-slate-500"
+                        : "bg-blue-700 text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    }`}
+                  >
+                    {alreadyEnrolled ? "이미 수강 중" : addingStudentId === student.id ? "추가 중" : "추가"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </ModalFrame>
   );
 }
 
