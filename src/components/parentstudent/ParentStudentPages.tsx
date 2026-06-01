@@ -18,12 +18,6 @@ import {
   getStudentParents,
   rejectParentStudentInvitation,
 } from "@/lib/api";
-import {
-  attendanceStatusLabels,
-  attendanceStatusStyles,
-  mockAttendanceRecords,
-  type AttendanceStatus,
-} from "@/types/attendance";
 import type {
   ParentStudentInvitationResponse,
   AcademyStudentInvitationResponse,
@@ -181,7 +175,6 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
 function AttendanceSummaryCard({ role }: { role: FamilyRole }) {
   const title = role === "PARENT" ? "자녀 출석 기록" : "내 출석 기록";
   const description = role === "PARENT" ? "자녀의 수업 출석 상태를 확인합니다." : "최근 출석 상태를 확인합니다.";
-  const records = mockAttendanceRecords.slice(0, 3);
 
   return (
     <FamilyCard>
@@ -194,28 +187,12 @@ function AttendanceSummaryCard({ role }: { role: FamilyRole }) {
           조회 전용
         </span>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        {records.map((record) => (
-          <div key={record.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-bold text-slate-950">{role === "PARENT" ? record.studentName : record.className}</p>
-                <p className="mt-1 text-sm text-slate-600">{record.date}</p>
-              </div>
-              <FamilyAttendanceStatusBadge status={record.status} />
-            </div>
-          </div>
-        ))}
+      <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-4 py-5">
+        <p className="text-sm font-semibold text-slate-600">
+          출석 기록 상세 조회는 백엔드 API 확장 후 연결됩니다.
+        </p>
       </div>
     </FamilyCard>
-  );
-}
-
-function FamilyAttendanceStatusBadge({ status }: { status: AttendanceStatus }) {
-  return (
-    <span className={`inline-flex shrink-0 rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${attendanceStatusStyles[status]}`}>
-      {attendanceStatusLabels[status]}
-    </span>
   );
 }
 

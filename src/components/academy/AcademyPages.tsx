@@ -5,6 +5,7 @@ import {
   addAcademyClassStudent,
   ApiError,
   createTeacherInvitation,
+  getAcademyStudentAttendanceRecords,
   getAcademyClasses,
   getAcademyStudent,
   getAcademyStudentClasses,
@@ -20,7 +21,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import {
   attendanceStatusLabels,
   attendanceStatusStyles,
-  mockAttendanceRecords,
+  type AcademyStudentAttendanceRecordResponse,
   type AttendanceStatus,
 } from "@/types/attendance";
 import type {
@@ -488,7 +489,7 @@ function StudentDetailTabContent({
     );
   }
 
-  return <StudentAttendanceRecordsTab student={student} />;
+  return <StudentAttendanceRecordsTab student={student} accessToken={accessToken} />;
 }
 
 function StudentDetailBasicTab({ student }: { student: AcademyStudentResponse }) {
@@ -650,8 +651,56 @@ function StudentClassesTab({
   );
 }
 
-function StudentAttendanceRecordsTab({ student }: { student: AcademyStudentResponse }) {
-  const records = mockAttendanceRecords.filter((record) => record.studentName === student.name);
+function StudentAttendanceRecordsTab({
+  student,
+  accessToken,
+}: {
+  student: AcademyStudentResponse;
+  accessToken: string | null;
+}) {
+  const [records, setRecords] = useState<AcademyStudentAttendanceRecordResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const loadRecords = useCallback(() => {
+    if (!accessToken) return;
+
+    setIsLoading(true);
+    setErrorMessage("");
+    getAcademyStudentAttendanceRecords(student.id, accessToken)
+      .then((data) => {
+        setRecords(data);
+      })
+      .catch((error) => {
+        setErrorMessage(getErrorMessage(error));
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [accessToken, student.id]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadRecords);
+  }, [loadRecords]);
+
+  if (isLoading) {
+    return <p className="text-sm font-semibold text-slate-600">출석 기록을 불러오고 있습니다.</p>;
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="rounded-3xl border border-red-100 bg-red-50 px-5 py-4">
+        <p className="text-sm font-semibold text-red-600">{errorMessage}</p>
+        <button
+          type="button"
+          onClick={loadRecords}
+          className="mt-3 inline-flex h-10 items-center justify-center rounded-2xl bg-white px-4 text-sm font-bold text-red-600 ring-1 ring-red-100"
+        >
+          다시 시도
+        </button>
+      </div>
+    );
+  }
 
   if (records.length === 0) {
     return (
@@ -676,8 +725,8 @@ function StudentAttendanceRecordsTab({ student }: { student: AcademyStudentRespo
           </thead>
           <tbody className="divide-y divide-slate-100">
             {records.map((record) => (
-              <tr key={record.id}>
-                <td className="px-4 py-4 font-semibold text-slate-700">{record.date}</td>
+              <tr key={record.recordId}>
+                <td className="px-4 py-4 font-semibold text-slate-700">{record.attendanceDate}</td>
                 <td className="px-4 py-4 font-bold text-slate-950">{record.className}</td>
                 <td className="px-4 py-4">
                   <StudentAttendanceStatusBadge status={record.status} />
@@ -691,10 +740,10 @@ function StudentAttendanceRecordsTab({ student }: { student: AcademyStudentRespo
 
       <div className="grid gap-3 sm:hidden">
         {records.map((record) => (
-          <div key={record.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div key={record.recordId} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-slate-500">{record.date}</p>
+                <p className="text-sm font-semibold text-slate-500">{record.attendanceDate}</p>
                 <h3 className="mt-1 font-bold text-slate-950">{record.className}</h3>
                 <p className="mt-2 text-sm text-slate-600">{record.memo || "메모 없음"}</p>
               </div>

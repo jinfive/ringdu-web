@@ -1,21 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
   acceptTeacherInvitation,
   ApiError,
+  createTeacherAttendanceSession,
   getMyTeacherInvitations,
+  getTeacherTodayClasses,
   rejectTeacherInvitation,
+  saveTeacherAttendanceRecords,
 } from "@/lib/api";
 import {
+  attendanceSessionStatusLabels,
   attendanceStatusLabels,
   attendanceStatusStyles,
-  mockAttendanceClasses,
-  mockAttendanceRecords,
+  type AttendanceRecordResponse,
+  type AttendanceSessionDetailResponse,
   type AttendanceStatus,
+  type TeacherTodayClassResponse,
 } from "@/types/attendance";
 import type { MyTeacherInvitationResponse, TeacherInvitationStatus } from "@/types/auth";
 
@@ -30,6 +35,7 @@ const preparingMenus = ["내 수업", "출석 체크", "숙제 관리", "공지"
 export function TeacherDashboardPage() {
   const { accessToken } = useAuth();
   const [invitations, setInvitations] = useState<MyTeacherInvitationResponse[]>([]);
+  const [todayClasses, setTodayClasses] = useState<TeacherTodayClassResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -39,10 +45,11 @@ export function TeacherDashboardPage() {
     }
 
     let isMounted = true;
-    void getMyTeacherInvitations(accessToken)
-      .then((responses) => {
+    void Promise.all([getMyTeacherInvitations(accessToken), getTeacherTodayClasses(accessToken)])
+      .then(([responses, classes]) => {
         if (isMounted) {
           setInvitations(responses);
+          setTodayClasses(classes);
           setErrorMessage("");
         }
       })
@@ -70,6 +77,8 @@ export function TeacherDashboardPage() {
     () => invitations.filter((invitation) => invitation.status === "ACCEPTED"),
     [invitations],
   );
+  const completedAttendanceCount = todayClasses.filter((item) => item.attendanceStatus === "COMPLETED").length;
+  const pendingAttendanceCount = todayClasses.length - completedAttendanceCount;
 
   return (
     <TeacherShell title="선생님 홈">
@@ -79,8 +88,8 @@ export function TeacherDashboardPage() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard label="받은 초대장" value={`${pendingInvitations.length}건`} />
           <SummaryCard label="연결된 학원" value={`${connectedAcademies.length}곳`} />
-          <SummaryCard label="오늘 수업" value={`${mockAttendanceClasses.length}개`} />
-          <SummaryCard label="출석 체크" value="2건" />
+          <SummaryCard label="오늘 수업" value={isLoading ? "-" : `${todayClasses.length}개`} />
+          <SummaryCard label="출석 체크" value={isLoading ? "-" : `${pendingAttendanceCount}건`} muted={pendingAttendanceCount === 0} />
         </div>
 
         <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -298,16 +307,45 @@ export function TeacherInvitationsPage() {
 }
 
 export function TeacherAttendancePage() {
-  const recentRecords = mockAttendanceRecords.slice(0, 3);
+  const { accessToken } = useAuth();
+  const [todayClasses, setTodayClasses] = useState<TeacherTodayClassResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const loadTodayClasses = useCallback(() => {
+    if (!accessToken) return;
+
+    setIsLoading(true);
+    setErrorMessage("");
+    void getTeacherTodayClasses(accessToken)
+      .then((classes) => {
+        setTodayClasses(classes);
+      })
+      .catch((error) => {
+        setErrorMessage(getTeacherErrorMessage(error));
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [accessToken]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadTodayClasses);
+  }, [loadTodayClasses]);
+
+  const completedClasses = todayClasses.filter((item) => item.attendanceStatus === "COMPLETED");
+  const pendingClasses = todayClasses.filter((item) => item.attendanceStatus !== "COMPLETED");
 
   return (
     <TeacherShell title="출석 체크">
       <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-3">
-          <SummaryCard label="오늘 수업" value={`${mockAttendanceClasses.length}개`} />
-          <SummaryCard label="출석 처리 대기" value="2건" />
-          <SummaryCard label="최근 처리" value={`${recentRecords.length}건`} />
+          <SummaryCard label="오늘 수업" value={isLoading ? "-" : `${todayClasses.length}개`} />
+          <SummaryCard label="출석 처리 대기" value={isLoading ? "-" : `${pendingClasses.length}건`} muted={pendingClasses.length === 0} />
+          <SummaryCard label="처리 완료" value={isLoading ? "-" : `${completedClasses.length}건`} muted={completedClasses.length === 0} />
         </div>
+
+        {errorMessage ? <AlertMessage tone="error">{errorMessage}</AlertMessage> : null}
 
         <TeacherCard>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -315,12 +353,27 @@ export function TeacherAttendancePage() {
               <h2 className="text-lg font-bold text-slate-950">오늘 수업</h2>
               <p className="mt-1 text-sm text-slate-600">담당 수업의 출석을 체크합니다.</p>
             </div>
-            <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100">
-              mock 데이터
-            </span>
+            <button
+              type="button"
+              onClick={loadTodayClasses}
+              className="inline-flex h-10 w-fit items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
+            >
+              새로고침
+            </button>
           </div>
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            {mockAttendanceClasses.map((attendanceClass) => (
+
+          {isLoading ? <p className="mt-5 text-sm font-semibold text-slate-600">오늘 수업을 불러오고 있습니다.</p> : null}
+
+          {!isLoading && todayClasses.length === 0 ? (
+            <TeacherEmptyState
+              title="오늘 담당 수업이 없습니다."
+              description="담당 수업이 배정되면 이곳에서 출석을 체크할 수 있습니다."
+            />
+          ) : null}
+
+          {todayClasses.length > 0 ? (
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              {todayClasses.map((attendanceClass) => (
               <Link
                 key={attendanceClass.classId}
                 href={`/teacher/attendance/${attendanceClass.classId}`}
@@ -330,44 +383,55 @@ export function TeacherAttendancePage() {
                   <div>
                     <h3 className="text-lg font-bold text-slate-950">{attendanceClass.className}</h3>
                     <p className="mt-2 text-sm font-semibold text-slate-600">
-                      {attendanceClass.dayLabel} {attendanceClass.startTime} - {attendanceClass.endTime}
+                      {attendanceClass.dayLabel} {formatTime(attendanceClass.startTime)} - {formatTime(attendanceClass.endTime)}
                     </p>
-                    <p className="mt-1 text-sm text-slate-600">수강 학생 {attendanceClass.studentCount}명</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {attendanceClass.classroomName} · 수강 학생 {attendanceClass.studentCount}명
+                    </p>
                   </div>
-                  <span className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white">
-                    출석 체크
-                  </span>
+                  <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+                    <AttendanceSessionStatusBadge status={attendanceClass.attendanceStatus} />
+                    <span className="inline-flex h-10 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white">
+                      출석 체크
+                    </span>
+                  </div>
                 </div>
               </Link>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : null}
         </TeacherCard>
 
         <section className="grid gap-6 xl:grid-cols-2">
           <TeacherCard>
             <h2 className="text-lg font-bold text-slate-950">출석 처리 대기</h2>
             <div className="mt-4 grid gap-3">
-              {mockAttendanceClasses.map((attendanceClass) => (
-                <div key={attendanceClass.classId} className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+              {pendingClasses.length === 0 ? (
+                <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+                  처리 대기 중인 수업이 없습니다.
+                </p>
+              ) : null}
+              {pendingClasses.map((attendanceClass) => (
+                <Link key={attendanceClass.classId} href={`/teacher/attendance/${attendanceClass.classId}`} className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 transition hover:bg-amber-100">
                   <p className="font-bold text-slate-950">{attendanceClass.className}</p>
                   <p className="mt-1 text-sm font-semibold text-amber-700">오늘 출석 체크 필요</p>
-                </div>
+                </Link>
               ))}
             </div>
           </TeacherCard>
 
           <TeacherCard>
-            <h2 className="text-lg font-bold text-slate-950">최근 처리한 출석</h2>
+            <h2 className="text-lg font-bold text-slate-950">처리 완료</h2>
             <div className="mt-4 grid gap-3">
-              {recentRecords.map((record) => (
-                <div key={record.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-bold text-slate-950">{record.studentName}</p>
-                      <p className="mt-1 text-sm text-slate-600">{record.className} · {record.date}</p>
-                    </div>
-                    <AttendanceStatusBadge status={record.status} />
-                  </div>
+              {completedClasses.length === 0 ? (
+                <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+                  아직 처리 완료된 출석이 없습니다.
+                </p>
+              ) : null}
+              {completedClasses.map((attendanceClass) => (
+                <div key={attendanceClass.classId} className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                  <p className="font-bold text-slate-950">{attendanceClass.className}</p>
+                  <p className="mt-1 text-sm font-semibold text-emerald-700">출석 처리 완료</p>
                 </div>
               ))}
             </div>
@@ -379,30 +443,75 @@ export function TeacherAttendancePage() {
 }
 
 export function TeacherAttendanceDetailPage({ classId }: { classId: string }) {
-  const attendanceClass = mockAttendanceClasses.find((item) => item.classId === classId) ?? mockAttendanceClasses[0];
-  const [attendanceDate, setAttendanceDate] = useState("2026-06-01");
+  const { accessToken } = useAuth();
+  const numericClassId = Number(classId);
+  const [attendanceDate, setAttendanceDate] = useState(getTodayDateInput());
+  const [session, setSession] = useState<AttendanceSessionDetailResponse | null>(null);
+  const [attendanceState, setAttendanceState] = useState<Record<number, { status: AttendanceStatus; memo: string }>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
-  const [attendanceState, setAttendanceState] = useState(() =>
-    Object.fromEntries(
-      attendanceClass.students.map((student, index) => [
-        student.studentId,
-        {
-          status: (index === 1 ? "LATE" : "PRESENT") as AttendanceStatus,
-          memo: "",
-        },
-      ]),
-    ),
-  );
 
-  const updateStudentAttendance = (studentId: string, status: AttendanceStatus, memo?: string) => {
+  const loadAttendanceSession = useCallback(() => {
+    if (!accessToken || !Number.isFinite(numericClassId)) return;
+
+    setIsLoading(true);
+    setErrorMessage("");
+    setSavedMessage("");
+    void createTeacherAttendanceSession(numericClassId, attendanceDate, accessToken)
+      .then((data) => {
+        setSession(data);
+        setAttendanceState(toAttendanceState(data.records));
+      })
+      .catch((error) => {
+        setErrorMessage(getTeacherErrorMessage(error));
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [accessToken, attendanceDate, numericClassId]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadAttendanceSession);
+  }, [loadAttendanceSession]);
+
+  const updateStudentAttendance = (studentProfileId: number, status: AttendanceStatus, memo?: string) => {
     setAttendanceState((current) => ({
       ...current,
-      [studentId]: {
+      [studentProfileId]: {
         status,
-        memo: memo ?? current[studentId]?.memo ?? "",
+        memo: memo ?? current[studentProfileId]?.memo ?? "",
       },
     }));
     setSavedMessage("");
+  };
+
+  const handleSave = async () => {
+    if (!accessToken || !session) return;
+
+    setIsSaving(true);
+    setErrorMessage("");
+    try {
+      const updated = await saveTeacherAttendanceRecords(
+        session.attendanceSessionId,
+        {
+          records: session.records.map((record) => ({
+            studentProfileId: record.studentProfileId,
+            status: attendanceState[record.studentProfileId]?.status ?? record.status,
+            memo: attendanceState[record.studentProfileId]?.memo ?? record.memo ?? "",
+          })),
+        },
+        accessToken,
+      );
+      setSession(updated);
+      setAttendanceState(toAttendanceState(updated.records));
+      setSavedMessage("출석이 저장되었습니다.");
+    } catch (error) {
+      setErrorMessage(getTeacherErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -412,10 +521,8 @@ export function TeacherAttendanceDetailPage({ classId }: { classId: string }) {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-bold uppercase text-blue-600">ATTENDANCE</p>
-              <h2 className="mt-2 text-2xl font-bold text-slate-950">{attendanceClass.className}</h2>
-              <p className="mt-2 text-sm font-semibold text-slate-600">
-                {attendanceClass.dayLabel} {attendanceClass.startTime} - {attendanceClass.endTime} · 수강 학생 {attendanceClass.studentCount}명
-              </p>
+              <h2 className="mt-2 text-2xl font-bold text-slate-950">{session?.className ?? "출석 체크"}</h2>
+              <p className="mt-2 text-sm font-semibold text-slate-600">출석/지각/결석을 선택하고 저장합니다.</p>
             </div>
             <label className="block">
               <span className="text-sm font-bold text-slate-700">날짜 선택</span>
@@ -429,6 +536,8 @@ export function TeacherAttendanceDetailPage({ classId }: { classId: string }) {
           </div>
         </TeacherCard>
 
+        {errorMessage ? <AlertMessage tone="error">{errorMessage}</AlertMessage> : null}
+
         {savedMessage ? (
           <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
             {savedMessage}
@@ -437,25 +546,33 @@ export function TeacherAttendanceDetailPage({ classId }: { classId: string }) {
 
         <TeacherCard>
           <h2 className="text-lg font-bold text-slate-950">수강 학생 목록</h2>
-          <div className="mt-4 grid gap-3">
-            {attendanceClass.students.map((student) => {
-              const current = attendanceState[student.studentId] ?? { status: "PRESENT" as AttendanceStatus, memo: "" };
+          {isLoading ? <p className="mt-4 text-sm font-semibold text-slate-600">출석부를 불러오고 있습니다.</p> : null}
+          {!isLoading && session?.records.length === 0 ? (
+            <TeacherEmptyState
+              title="수강 학생이 없습니다."
+              description="수업에 학생이 추가되면 출석 체크 목록에 표시됩니다."
+            />
+          ) : null}
+          {session ? (
+            <div className="mt-4 grid gap-3">
+            {session.records.map((student) => {
+              const current = attendanceState[student.studentProfileId] ?? { status: student.status, memo: student.memo ?? "" };
               return (
-                <div key={student.studentId} className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
+                <div key={student.studentProfileId} className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
                   <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr] lg:items-start">
                     <div>
-                      <p className="font-bold text-slate-950">{student.name}</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-600">
-                        {student.school} / {student.grade}
+                      <p className="font-bold text-slate-950">{student.studentName}</p>
+                      <p className="mt-2">
+                        <AttendanceStatusBadge status={current.status} />
                       </p>
                     </div>
                     <div className="grid gap-3">
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <div className="grid grid-cols-3 gap-2">
                         {(Object.keys(attendanceStatusLabels) as AttendanceStatus[]).map((status) => (
                           <button
                             key={status}
                             type="button"
-                            onClick={() => updateStudentAttendance(student.studentId, status)}
+                            onClick={() => updateStudentAttendance(student.studentProfileId, status)}
                             className={`h-10 rounded-2xl border px-3 text-sm font-bold transition ${
                               current.status === status
                                 ? "border-blue-700 bg-blue-700 text-white shadow-lg shadow-blue-100"
@@ -468,7 +585,7 @@ export function TeacherAttendanceDetailPage({ classId }: { classId: string }) {
                       </div>
                       <input
                         value={current.memo}
-                        onChange={(event) => updateStudentAttendance(student.studentId, current.status, event.target.value)}
+                        onChange={(event) => updateStudentAttendance(student.studentProfileId, current.status, event.target.value)}
                         placeholder="메모 optional"
                         className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                       />
@@ -477,14 +594,16 @@ export function TeacherAttendanceDetailPage({ classId }: { classId: string }) {
                 </div>
               );
             })}
-          </div>
+            </div>
+          ) : null}
           <div className="mt-5 flex justify-end">
             <button
               type="button"
-              onClick={() => setSavedMessage("출석이 저장되었습니다.")}
-              className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-800"
+              onClick={() => void handleSave()}
+              disabled={!session || isSaving}
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
             >
-              저장하기
+              {isSaving ? "저장 중" : "저장하기"}
             </button>
           </div>
         </TeacherCard>
@@ -631,6 +750,45 @@ function AttendanceStatusBadge({ status }: { status: AttendanceStatus }) {
   );
 }
 
+function AttendanceSessionStatusBadge({ status }: { status: TeacherTodayClassResponse["attendanceStatus"] }) {
+  const isCompleted = status === "COMPLETED";
+  const label = status ? attendanceSessionStatusLabels[status] : "출석부 미생성";
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${
+        isCompleted
+          ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+          : "bg-amber-50 text-amber-700 ring-amber-100"
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function toAttendanceState(records: AttendanceRecordResponse[]) {
+  return Object.fromEntries(
+    records.map((record) => [
+      record.studentProfileId,
+      {
+        status: record.status,
+        memo: record.memo ?? "",
+      },
+    ]),
+  ) as Record<number, { status: AttendanceStatus; memo: string }>;
+}
+
+function getTodayDateInput() {
+  const today = new Date();
+  const timezoneOffset = today.getTimezoneOffset() * 60_000;
+  return new Date(today.getTime() - timezoneOffset).toISOString().slice(0, 10);
+}
+
+function formatTime(value: string) {
+  return value.slice(0, 5);
+}
+
 function AlertMessage({ children, tone }: { children: ReactNode; tone: "error" }) {
   const className =
     tone === "error"
@@ -657,7 +815,7 @@ function getTeacherErrorMessage(error: unknown) {
     return error.message;
   }
 
-  return "초대장 정보를 불러오지 못했습니다.\n잠시 후 다시 시도해 주세요.";
+  return "정보를 불러오지 못했습니다.\n잠시 후 다시 시도해 주세요.";
 }
 
 function formatDate(value: string | null) {
