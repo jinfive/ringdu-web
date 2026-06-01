@@ -28,6 +28,15 @@ import type {
   AcademyStudentInvitationCreateRequest,
   AcademyStudentInvitationResponse,
 } from "@/types/auth";
+import type {
+  AcademyClassDetailResponse,
+  AcademyClassListQuery,
+  AcademyClassRequest,
+  AcademyClassResponse,
+  AcademyClassStudentRequest,
+  AcademyClassroomRequest,
+  AcademyClassroomResponse,
+} from "@/types/schedule";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
 
@@ -401,6 +410,144 @@ export async function getAcademyStudentInvitations(
 ): Promise<AcademyStudentInvitationResponse[]> {
   return request<AcademyStudentInvitationResponse[]>("/api/academies/me/student-invitations", {
     method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getAcademyClassrooms(accessToken: string): Promise<AcademyClassroomResponse[]> {
+  return request<AcademyClassroomResponse[]>("/api/academies/me/classrooms", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createAcademyClassroom(
+  payload: AcademyClassroomRequest,
+  accessToken: string,
+): Promise<AcademyClassroomResponse> {
+  return request<AcademyClassroomResponse>("/api/academies/me/classrooms", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateAcademyClassroom(
+  classroomId: number,
+  payload: AcademyClassroomRequest,
+  accessToken: string,
+): Promise<AcademyClassroomResponse> {
+  return request<AcademyClassroomResponse>(`/api/academies/me/classrooms/${classroomId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteAcademyClassroom(classroomId: number, accessToken: string): Promise<void> {
+  await request<null>(`/api/academies/me/classrooms/${classroomId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getAcademyClasses(
+  accessToken: string,
+  query: AcademyClassListQuery = {},
+): Promise<AcademyClassResponse[]> {
+  const params = new URLSearchParams();
+  if (query.dayOfWeek) params.set("dayOfWeek", query.dayOfWeek);
+  if (query.classroomId) params.set("classroomId", String(query.classroomId));
+  if (query.status) params.set("status", query.status);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+
+  return request<AcademyClassResponse[]>(`/api/academies/me/classes${suffix}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createAcademyClass(
+  payload: AcademyClassRequest,
+  accessToken: string,
+): Promise<AcademyClassResponse> {
+  return request<AcademyClassResponse>("/api/academies/me/classes", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAcademyClass(
+  classId: number,
+  accessToken: string,
+): Promise<AcademyClassDetailResponse> {
+  return request<AcademyClassDetailResponse>(`/api/academies/me/classes/${classId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateAcademyClass(
+  classId: number,
+  payload: AcademyClassRequest,
+  accessToken: string,
+): Promise<AcademyClassResponse> {
+  return request<AcademyClassResponse>(`/api/academies/me/classes/${classId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteAcademyClass(classId: number, accessToken: string): Promise<void> {
+  await request<null>(`/api/academies/me/classes/${classId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function addAcademyClassStudent(
+  classId: number,
+  payload: AcademyClassStudentRequest,
+  accessToken: string,
+): Promise<AcademyClassDetailResponse> {
+  return request<AcademyClassDetailResponse>(`/api/academies/me/classes/${classId}/students`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteAcademyClassStudent(
+  classId: number,
+  studentProfileId: number,
+  accessToken: string,
+): Promise<void> {
+  await request<null>(`/api/academies/me/classes/${classId}/students/${studentProfileId}`, {
+    method: "DELETE",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
