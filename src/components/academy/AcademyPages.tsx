@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   ApiError,
@@ -42,9 +41,14 @@ export function AcademyStudentsPage() {
   const { accessToken, user } = useAuth();
   const isPendingApproval = user?.status === "PENDING_APPROVAL";
   const [students, setStudents] = useState<AcademyStudentResponse[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<AcademyStudentResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [detailErrorMessage, setDetailErrorMessage] = useState("");
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<StudentDetailTab>("기본 정보");
 
   const loadStudents = useCallback(() => {
     if (!accessToken || isPendingApproval) return;
@@ -53,6 +57,16 @@ export function AcademyStudentsPage() {
     getAcademyStudents(accessToken)
       .then((data) => {
         setStudents(data);
+        if (data.length === 0) {
+          setSelectedStudent(null);
+        }
+        setSelectedStudentId((current) => {
+          if (current && data.some((student) => student.id === current)) {
+            return current;
+          }
+
+          return data[0]?.id ?? null;
+        });
         setErrorMessage("");
       })
       .catch((error) => {
@@ -71,6 +85,16 @@ export function AcademyStudentsPage() {
       .then((data) => {
         if (isMounted) {
           setStudents(data);
+          if (data.length === 0) {
+            setSelectedStudent(null);
+          }
+          setSelectedStudentId((current) => {
+            if (current && data.some((student) => student.id === current)) {
+              return current;
+            }
+
+            return data[0]?.id ?? null;
+          });
           setErrorMessage("");
         }
       })
@@ -86,10 +110,43 @@ export function AcademyStudentsPage() {
     };
   }, [accessToken, isPendingApproval]);
 
+  useEffect(() => {
+    if (!accessToken || isPendingApproval || selectedStudentId === null) {
+      return;
+    }
+
+    let isMounted = true;
+
+    void Promise.resolve().then(() => {
+      if (!isMounted) return;
+
+      setIsDetailLoading(true);
+      setDetailErrorMessage("");
+
+      getAcademyStudent(selectedStudentId, accessToken)
+        .then((data) => {
+          if (isMounted) setSelectedStudent(data);
+        })
+        .catch((error) => {
+          if (isMounted) {
+            setSelectedStudent(null);
+            setDetailErrorMessage(getErrorMessage(error));
+          }
+        })
+        .finally(() => {
+          if (isMounted) setIsDetailLoading(false);
+        });
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken, isPendingApproval, selectedStudentId]);
+
   return (
     <AcademyShell
       title="학생 관리"
-      description="학생 정보와 수강, 상담, 수납 상태를 한 곳에서 관리합니다."
+      description="학생 목록을 보며 선택한 학생의 상세 정보를 함께 확인합니다."
       actions={<StudentRegistrationButton onClick={() => setIsRegistrationOpen(true)} />}
     >
       <div className="space-y-6">
@@ -107,10 +164,9 @@ export function AcademyStudentsPage() {
         ) : null}
 
         <AcademyCard>
-          <div className="grid gap-3 md:grid-cols-[1.5fr_0.7fr_0.7fr]">
+          <div className="grid gap-3 md:grid-cols-[1.5fr_0.7fr]">
             <FieldPreview label="검색" value="준비 중" />
             <FieldPreview label="학년" value="전체" />
-            <FieldPreview label="상태" value="전체" />
           </div>
         </AcademyCard>
 
@@ -127,37 +183,54 @@ export function AcademyStudentsPage() {
         ) : null}
 
         {!isLoading && students.length > 0 ? (
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-            <div className="hidden bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-500 lg:grid lg:grid-cols-[1.1fr_0.9fr_1fr_1fr_0.8fr_0.8fr_0.7fr]">
-              <span>이름</span>
-              <span>학교/학년</span>
-              <span>학생 연락처</span>
-              <span>보호자 연락처</span>
-              <span>수강 수업</span>
-              <span>수납 상태</span>
-              <span>상태</span>
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+              <div className="hidden bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-500 lg:grid lg:grid-cols-[1fr_0.9fr_1fr_1fr]">
+                <span>이름</span>
+                <span>학교/학년</span>
+                <span>학생 연락처</span>
+                <span>보호자 연락처</span>
+              </div>
+              {students.map((student) => {
+                const isSelected = selectedStudentId === student.id;
+
+                return (
+                  <button
+                    key={student.id}
+                    type="button"
+                    onClick={() => {
+                      if (selectedStudentId !== student.id) {
+                        setSelectedStudentId(student.id);
+                        setSelectedStudent(null);
+                      }
+                      setActiveTab("기본 정보");
+                    }}
+                    className={`grid w-full gap-3 border-t px-4 py-4 text-left text-sm text-slate-700 transition sm:grid-cols-2 lg:grid-cols-[1fr_0.9fr_1fr_1fr] ${
+                      isSelected
+                        ? "border-blue-100 bg-blue-50/70 ring-1 ring-inset ring-blue-200"
+                        : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <StudentListCell label="이름" value={student.name} strong />
+                    <StudentListCell label="학교/학년" value={`${student.school || "-"} / ${student.grade || "-"}`} />
+                    <StudentListCell label="학생 연락처" value={student.phone || "연락처 없음"} />
+                    <StudentListCell
+                      label="보호자 연락처"
+                      value={student.guardianParentPhone || student.guardianPhone || "연락처 없음"}
+                    />
+                  </button>
+                );
+              })}
             </div>
-            {students.map((student) => (
-              <Link
-                key={student.id}
-                href={`/academy/students/${student.id}`}
-                className="grid gap-3 border-t border-slate-200 px-4 py-4 text-sm text-slate-700 transition hover:bg-slate-50 sm:grid-cols-2 lg:grid-cols-[1.1fr_0.9fr_1fr_1fr_0.8fr_0.8fr_0.7fr]"
-              >
-                <StudentListCell label="이름" value={student.name} strong />
-                <StudentListCell label="학교/학년" value={`${student.school || "-"} / ${student.grade || "-"}`} />
-                <StudentListCell label="학생 연락처" value={student.phone || "연락처 없음"} />
-                <StudentListCell
-                  label="보호자 연락처"
-                  value={student.guardianParentPhone || student.guardianPhone || "연락처 없음"}
-                />
-                <StudentListCell label="수강 수업" value="연동 예정" muted />
-                <StudentListCell label="수납 상태" value="연동 예정" muted />
-                <div>
-                  <span className="mb-1 block text-xs font-bold text-slate-400 lg:hidden">상태</span>
-                  <StatusBadge>{getStudentStatusLabel(student.status)}</StatusBadge>
-                </div>
-              </Link>
-            ))}
+
+            <StudentDetailPanel
+              student={selectedStudent}
+              isLoading={isDetailLoading}
+              errorMessage={detailErrorMessage}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              emptyMessage="학생을 선택하면 상세 정보가 표시됩니다."
+            />
           </div>
         ) : null}
       </div>
@@ -177,15 +250,13 @@ function StudentListCell({
   label,
   value,
   strong = false,
-  muted = false,
 }: {
   label: string;
   value: string;
   strong?: boolean;
-  muted?: boolean;
 }) {
   return (
-    <span className={strong ? "font-semibold text-slate-950" : muted ? "font-semibold text-slate-500" : ""}>
+    <span className={strong ? "font-semibold text-slate-950" : ""}>
       <span className="mb-1 block text-xs font-bold text-slate-400 lg:hidden">{label}</span>
       {value}
     </span>
@@ -233,13 +304,20 @@ export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
 
   useEffect(() => {
     let isMounted = true;
+    const parsedStudentId = parseInt(studentId, 10);
 
     void Promise.resolve().then(() => {
       if (!accessToken || isPendingApproval || !isMounted) return;
 
+      if (Number.isNaN(parsedStudentId)) {
+        setErrorMessage("학생 정보를 찾을 수 없습니다.");
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       setErrorMessage("");
-      getAcademyStudent(parseInt(studentId), accessToken)
+      getAcademyStudent(parsedStudentId, accessToken)
         .then((data) => {
           if (isMounted) setStudent(data);
         })
@@ -259,68 +337,103 @@ export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
 
   return (
     <AcademyShell title="학생 상세" description={student ? `${student.name} 학생의 정보를 관리합니다.` : "학생 정보를 확인합니다."}>
-      <div className="space-y-6">
-        <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white p-2">
-          <div className="flex min-w-max gap-2">
-            {studentDetailTabs.map((tab) => {
-              const isActive = activeTab === tab;
-              return (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`h-10 rounded-2xl px-4 text-sm font-bold transition ${
-                    isActive
-                      ? "bg-blue-700 text-white shadow-lg shadow-blue-100"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-                  }`}
-                >
-                  {tab}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {errorMessage ? (
-          <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-            {errorMessage}
-          </p>
-        ) : null}
-
-        {isLoading ? (
-          <p className="text-sm font-semibold text-slate-600">학생 정보를 불러오고 있습니다.</p>
-        ) : null}
-
-        {student ? (
-          <AcademyCard>
-            <div className="flex items-center justify-between gap-4 mb-6">
-              <div>
-                <StatusBadge>{getStudentStatusLabel(student.status)}</StatusBadge>
-                <h2 className="mt-3 text-xl font-bold text-slate-950">{student.name}</h2>
-              </div>
-              {/* Connection Status */
-              student.userId ? (
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-600 border border-emerald-100">
-                  계정 연결됨
-                </span>
-              ) : student.matchedStudentUserExists ? (
-                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-600 border border-amber-100">
-                  계정 매칭됨 (초대 필요)
-                </span>
-              ) : (
-                <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-bold text-slate-500 border border-slate-100">
-                  비회원
-                </span>
-              )
-            }
-            </div>
-
-            <StudentDetailTabContent student={student} activeTab={activeTab} />
-          </AcademyCard>
-        ) : null}
-      </div>
+      <StudentDetailPanel
+        student={student}
+        isLoading={isLoading}
+        errorMessage={errorMessage}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        emptyMessage="학생 정보를 확인할 수 없습니다."
+      />
     </AcademyShell>
+  );
+}
+
+function StudentDetailPanel({
+  student,
+  isLoading,
+  errorMessage,
+  activeTab,
+  onTabChange,
+  emptyMessage,
+}: {
+  student: AcademyStudentResponse | null;
+  isLoading: boolean;
+  errorMessage: string;
+  activeTab: StudentDetailTab;
+  onTabChange: (tab: StudentDetailTab) => void;
+  emptyMessage: string;
+}) {
+  return (
+    <div className="space-y-4">
+      {student || isLoading || errorMessage ? (
+        <StudentDetailTabs activeTab={activeTab} onTabChange={onTabChange} />
+      ) : null}
+
+      {errorMessage ? (
+        <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+          {errorMessage}
+        </p>
+      ) : null}
+
+      {isLoading ? (
+        <AcademyCard>
+          <p className="text-sm font-semibold text-slate-600">학생 정보를 불러오고 있습니다.</p>
+        </AcademyCard>
+      ) : null}
+
+      {!isLoading && !student && !errorMessage ? (
+        <AcademyCard>
+          <p className="text-sm font-semibold text-slate-600">{emptyMessage}</p>
+        </AcademyCard>
+      ) : null}
+
+      {!isLoading && student ? (
+        <AcademyCard>
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase text-blue-600">학생 상세</p>
+              <h2 className="mt-2 text-xl font-bold text-slate-950">{student.name}</h2>
+            </div>
+            <GuardianConnectionBadge student={student} />
+          </div>
+
+          <StudentDetailTabContent student={student} activeTab={activeTab} />
+        </AcademyCard>
+      ) : null}
+    </div>
+  );
+}
+
+function StudentDetailTabs({
+  activeTab,
+  onTabChange,
+}: {
+  activeTab: StudentDetailTab;
+  onTabChange: (tab: StudentDetailTab) => void;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white p-2">
+      <div className="flex min-w-max gap-2">
+        {studentDetailTabs.map((tab) => {
+          const isActive = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => onTabChange(tab)}
+              className={`h-10 rounded-2xl px-4 text-sm font-bold transition ${
+                isActive
+                  ? "bg-blue-700 text-white shadow-lg shadow-blue-100"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+              }`}
+            >
+              {tab}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -380,7 +493,6 @@ function StudentDetailBasicTab({ student }: { student: AcademyStudentResponse })
       <FieldPreview label="학생 연락처" value={student.phone || "-"} />
       <FieldPreview label="보호자 연락처" value={student.guardianParentPhone || student.guardianPhone || "-"} />
       <FieldPreview label="보호자 계정 연결 상태" value={student.guardianAccountLinked ? "계정 연결됨" : "미연결"} />
-      <StudentGuardianInfoCard student={student} />
       <div className="sm:col-span-2">
         <FieldPreview label="메모" value={student.memo || "-"} />
       </div>
@@ -388,12 +500,19 @@ function StudentDetailBasicTab({ student }: { student: AcademyStudentResponse })
   );
 }
 
-function StudentGuardianInfoCard({ student }: { student: AcademyStudentResponse }) {
+function GuardianConnectionBadge({ student }: { student: AcademyStudentResponse }) {
+  if (student.guardianAccountLinked) {
+    return (
+      <span className="inline-flex w-fit rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-600">
+        보호자 계정 연결됨
+      </span>
+    );
+  }
+
   return (
-    <>
-      <FieldPreview label="보호자 이름" value={student.guardianParentName || "-"} />
-      <FieldPreview label="보호자 이메일" value={student.guardianParentEmail || "-"} />
-    </>
+    <span className="inline-flex w-fit rounded-full border border-slate-100 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-500">
+      보호자 계정 미연결
+    </span>
   );
 }
 
@@ -1184,16 +1303,6 @@ function getInvitationStatusLabel(status: TeacherInvitationStatus) {
   };
 
   return labels[status];
-}
-
-function getStudentStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    ACTIVE: "재원",
-    INACTIVE: "비활성",
-    GRADUATED: "졸업",
-  };
-
-  return labels[status] || status;
 }
 
 function defaultInvitationMessage(academyName: string) {
