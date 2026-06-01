@@ -61,6 +61,18 @@ export type AcademyStudentAttendanceRecordResponse = {
   memo: string;
 };
 
+export type AttendanceRecordListItem = {
+  id: string;
+  attendanceDate: string;
+  academyId: string;
+  academyName: string;
+  className: string;
+  status: AttendanceStatus;
+  memo: string;
+  studentId?: string;
+  studentName?: string;
+};
+
 export const attendanceStatusLabels: Record<AttendanceStatus, string> = {
   PRESENT: "출석",
   LATE: "지각",
@@ -78,6 +90,75 @@ export const attendanceSessionStatusLabels: Record<AttendanceSessionStatus, stri
   COMPLETED: "처리 완료",
 };
 
+export const attendanceYearOptions = [2024, 2025, 2026, 2027];
+export const attendanceMonthOptions = Array.from({ length: 12 }, (_, index) => index + 1);
+
+export const mockStudentAttendanceRecords: AttendanceRecordListItem[] = [
+  {
+    id: "student-attendance-1",
+    attendanceDate: "2026-06-01",
+    academyId: "academy-1",
+    academyName: "링듀수학학원",
+    className: "중등 수학 A반",
+    status: "PRESENT",
+    memo: "정상 출석",
+  },
+  {
+    id: "student-attendance-2",
+    attendanceDate: "2026-06-03",
+    academyId: "academy-1",
+    academyName: "링듀수학학원",
+    className: "중등 수학 A반",
+    status: "LATE",
+    memo: "10분 지각",
+  },
+  {
+    id: "student-attendance-3",
+    attendanceDate: "2026-05-27",
+    academyId: "academy-2",
+    academyName: "링듀영어학원",
+    className: "영어 독해 B반",
+    status: "ABSENT",
+    memo: "결석",
+  },
+];
+
+export const mockParentAttendanceRecords: AttendanceRecordListItem[] = [
+  {
+    id: "parent-attendance-1",
+    attendanceDate: "2026-06-01",
+    studentId: "student-1",
+    studentName: "김학생",
+    academyId: "academy-1",
+    academyName: "링듀수학학원",
+    className: "중등 수학 A반",
+    status: "PRESENT",
+    memo: "정상 출석",
+  },
+  {
+    id: "parent-attendance-2",
+    attendanceDate: "2026-06-03",
+    studentId: "student-1",
+    studentName: "김학생",
+    academyId: "academy-1",
+    academyName: "링듀수학학원",
+    className: "중등 수학 A반",
+    status: "LATE",
+    memo: "10분 지각",
+  },
+  {
+    id: "parent-attendance-3",
+    attendanceDate: "2026-05-29",
+    studentId: "student-2",
+    studentName: "이학생",
+    academyId: "academy-2",
+    academyName: "링듀영어학원",
+    className: "영어 독해 B반",
+    status: "ABSENT",
+    memo: "결석",
+  },
+];
+
 export function countAttendanceStatuses(records: AttendanceRecordResponse[]) {
   return records.reduce<Record<AttendanceStatus, number>>(
     (acc, record) => {
@@ -86,4 +167,17 @@ export function countAttendanceStatuses(records: AttendanceRecordResponse[]) {
     },
     { PRESENT: 0, LATE: 0, ABSENT: 0 },
   );
+}
+
+export function getCurrentAttendanceFilter() {
+  const now = new Date();
+  return {
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+  };
+}
+
+export function isSameAttendanceMonth(attendanceDate: string, year: number, month: number) {
+  const [recordYear, recordMonth] = attendanceDate.split("-").map(Number);
+  return recordYear === year && recordMonth === month;
 }

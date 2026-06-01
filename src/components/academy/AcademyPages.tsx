@@ -21,6 +21,10 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import {
   attendanceStatusLabels,
   attendanceStatusStyles,
+  attendanceMonthOptions,
+  attendanceYearOptions,
+  getCurrentAttendanceFilter,
+  isSameAttendanceMonth,
   type AcademyStudentAttendanceRecordResponse,
   type AttendanceStatus,
 } from "@/types/attendance";
@@ -658,15 +662,20 @@ function StudentAttendanceRecordsTab({
   student: AcademyStudentResponse;
   accessToken: string | null;
 }) {
+  const defaultFilter = getCurrentAttendanceFilter();
   const [records, setRecords] = useState<AcademyStudentAttendanceRecordResponse[]>([]);
+  const [selectedYear, setSelectedYear] = useState(defaultFilter.year);
+  const [selectedMonth, setSelectedMonth] = useState(defaultFilter.month);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const filteredRecords = records.filter((record) => isSameAttendanceMonth(record.attendanceDate, selectedYear, selectedMonth));
 
   const loadRecords = useCallback(() => {
     if (!accessToken) return;
 
     setIsLoading(true);
     setErrorMessage("");
+    // TODO: 백엔드 year/month query가 추가되면 여기서 ?year=&month= 파라미터로 연동한다.
     getAcademyStudentAttendanceRecords(student.id, accessToken)
       .then((data) => {
         setRecords(data);
@@ -683,36 +692,90 @@ function StudentAttendanceRecordsTab({
     void Promise.resolve().then(loadRecords);
   }, [loadRecords]);
 
-  if (isLoading) {
-    return <p className="text-sm font-semibold text-slate-600">출석 기록을 불러오고 있습니다.</p>;
-  }
-
-  if (errorMessage) {
-    return (
-      <div className="rounded-3xl border border-red-100 bg-red-50 px-5 py-4">
-        <p className="text-sm font-semibold text-red-600">{errorMessage}</p>
+  const filterControls = (
+    <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
+      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <label className="block">
+          <span className="text-sm font-bold text-slate-700">년도</span>
+          <select
+            value={selectedYear}
+            onChange={(event) => setSelectedYear(Number(event.target.value))}
+            className="mt-2 h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          >
+            {attendanceYearOptions.map((year) => (
+              <option key={year} value={year}>
+                {year}년
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-sm font-bold text-slate-700">월</span>
+          <select
+            value={selectedMonth}
+            onChange={(event) => setSelectedMonth(Number(event.target.value))}
+            className="mt-2 h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          >
+            {attendanceMonthOptions.map((month) => (
+              <option key={month} value={month}>
+                {month}월
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           type="button"
           onClick={loadRecords}
-          className="mt-3 inline-flex h-10 items-center justify-center rounded-2xl bg-white px-4 text-sm font-bold text-red-600 ring-1 ring-red-100"
+          className="inline-flex h-10 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800"
         >
-          다시 시도
+          조회
         </button>
+      </div>
+    </div>
+  );
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {filterControls}
+        <p className="text-sm font-semibold text-slate-600">출석 기록을 불러오고 있습니다.</p>
       </div>
     );
   }
 
-  if (records.length === 0) {
+  if (errorMessage) {
     return (
-      <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50/80 px-5 py-8 text-center">
-        <h3 className="text-base font-bold text-slate-950">아직 출석 기록이 없습니다.</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">수업 출석이 처리되면 이곳에 표시됩니다.</p>
+      <div className="space-y-3">
+        {filterControls}
+        <div className="rounded-3xl border border-red-100 bg-red-50 px-5 py-4">
+          <p className="text-sm font-semibold text-red-600">{errorMessage}</p>
+          <button
+            type="button"
+            onClick={loadRecords}
+            className="mt-3 inline-flex h-10 items-center justify-center rounded-2xl bg-white px-4 text-sm font-bold text-red-600 ring-1 ring-red-100"
+          >
+            다시 시도
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (filteredRecords.length === 0) {
+    return (
+      <div className="space-y-3">
+        {filterControls}
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50/80 px-5 py-8 text-center">
+          <h3 className="text-base font-bold text-slate-950">선택한 기간의 출석 기록이 없습니다.</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">수업 출석이 처리되면 이곳에 표시됩니다.</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
+      {filterControls}
       <div className="hidden overflow-hidden rounded-3xl border border-slate-200 bg-white sm:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
@@ -724,7 +787,7 @@ function StudentAttendanceRecordsTab({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {records.map((record) => (
+            {filteredRecords.map((record) => (
               <tr key={record.recordId}>
                 <td className="px-4 py-4 font-semibold text-slate-700">{record.attendanceDate}</td>
                 <td className="px-4 py-4 font-bold text-slate-950">{record.className}</td>
@@ -739,7 +802,7 @@ function StudentAttendanceRecordsTab({
       </div>
 
       <div className="grid gap-3 sm:hidden">
-        {records.map((record) => (
+        {filteredRecords.map((record) => (
           <div key={record.recordId} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>

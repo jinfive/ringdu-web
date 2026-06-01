@@ -18,6 +18,18 @@ import {
   getStudentParents,
   rejectParentStudentInvitation,
 } from "@/lib/api";
+import {
+  attendanceMonthOptions,
+  attendanceStatusLabels,
+  attendanceStatusStyles,
+  attendanceYearOptions,
+  getCurrentAttendanceFilter,
+  isSameAttendanceMonth,
+  mockParentAttendanceRecords,
+  mockStudentAttendanceRecords,
+  type AttendanceRecordListItem,
+  type AttendanceStatus,
+} from "@/types/attendance";
 import type {
   ParentStudentInvitationResponse,
   AcademyStudentInvitationResponse,
@@ -26,15 +38,17 @@ import type {
 } from "@/types/auth";
 
 type FamilyRole = "PARENT" | "STUDENT";
-type PageMode = "dashboard" | "invitations";
+type PageMode = "dashboard" | "invitations" | "attendance";
 type InvitationTab = "connected" | "received" | "sent";
 
 type PageConfig = {
   role: FamilyRole;
   homePath: string;
   invitationsPath: string;
+  attendancePath: string;
   title: string;
   invitationTitle: string;
+  attendanceTitle: string;
   sendTitle: string;
   managementTitle: string;
   managementDescription: string;
@@ -55,8 +69,10 @@ const configs: Record<FamilyRole, PageConfig> = {
     role: "PARENT",
     homePath: "/parent",
     invitationsPath: "/parent/invitations",
+    attendancePath: "/parent/attendance",
     title: "학부모 홈",
     invitationTitle: "자녀 연결",
+    attendanceTitle: "자녀 출석 기록",
     sendTitle: "자녀에게 연결 요청 보내기",
     managementTitle: "자녀 연결",
     managementDescription: "자녀와 연결하면 출석, 시간표, 청구 정보를 확인할 수 있습니다.",
@@ -75,8 +91,10 @@ const configs: Record<FamilyRole, PageConfig> = {
     role: "STUDENT",
     homePath: "/student",
     invitationsPath: "/student/invitations",
+    attendancePath: "/student/attendance",
     title: "학생 홈",
     invitationTitle: "보호자 연결",
+    attendanceTitle: "내 출석 기록",
     sendTitle: "보호자에게 연결 요청 보내기",
     managementTitle: "보호자 연결",
     managementDescription: "보호자와 연결하면 학원 생활 정보를 함께 확인할 수 있습니다.",
@@ -174,7 +192,8 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
 
 function AttendanceSummaryCard({ role }: { role: FamilyRole }) {
   const title = role === "PARENT" ? "자녀 출석 기록" : "내 출석 기록";
-  const description = role === "PARENT" ? "자녀의 수업 출석 상태를 확인합니다." : "최근 출석 상태를 확인합니다.";
+  const description = role === "PARENT" ? "자녀의 학원별 출석 상태를 확인합니다." : "학원별 출석 상태를 확인합니다.";
+  const href = role === "PARENT" ? "/parent/attendance" : "/student/attendance";
 
   return (
     <FamilyCard>
@@ -187,13 +206,251 @@ function AttendanceSummaryCard({ role }: { role: FamilyRole }) {
           조회 전용
         </span>
       </div>
-      <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-4 py-5">
+      <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-4 py-5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-semibold text-slate-600">
-          출석 기록 상세 조회는 백엔드 API 확장 후 연결됩니다.
+          학원별, 기간별 출석 기록 화면으로 이동합니다.
         </p>
+        <FamilyLinkButton href={href}>출석 기록 보기</FamilyLinkButton>
       </div>
     </FamilyCard>
   );
+}
+
+export function ParentStudentAttendancePage({ role }: { role: FamilyRole }) {
+  const config = configs[role];
+  const state = useParentStudentState(config);
+  const defaultFilter = getCurrentAttendanceFilter();
+  const [selectedYear, setSelectedYear] = useState(defaultFilter.year);
+  const [selectedMonth, setSelectedMonth] = useState(defaultFilter.month);
+  const [selectedAcademyId, setSelectedAcademyId] = useState("all");
+  const [selectedStudentId, setSelectedStudentId] = useState("all");
+  const records = role === "PARENT" ? mockParentAttendanceRecords : mockStudentAttendanceRecords;
+  const academyOptions = getAcademyOptions(records);
+  const childOptions = role === "PARENT" ? getChildOptions(records, state.relations) : [];
+  const filteredRecords = records.filter((record) => {
+    const academyMatched = selectedAcademyId === "all" || record.academyId === selectedAcademyId;
+    const studentMatched = role !== "PARENT" || selectedStudentId === "all" || record.studentId === selectedStudentId;
+    return academyMatched && studentMatched && isSameAttendanceMonth(record.attendanceDate, selectedYear, selectedMonth);
+  });
+
+  return (
+    <FamilyShell config={config} mode="attendance">
+      <div className="space-y-6">
+        <FamilyCard>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">{config.attendanceTitle}</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                {role === "PARENT" ? "자녀별, 학원별 출석 기록을 확인합니다." : "학원별 출석 기록을 확인합니다."}
+              </p>
+            </div>
+            <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100">
+              API 연동 예정
+            </span>
+          </div>
+          <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+            {role === "PARENT"
+              ? "TODO: GET /api/parent/children/{studentProfileId}/attendance-records?academyId=&year=&month= 연동 예정"
+              : "TODO: GET /api/student/attendance-records?academyId=&year=&month= 연동 예정"}
+          </p>
+        </FamilyCard>
+
+        <FamilyAttendanceFilter
+          role={role}
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+          selectedAcademyId={selectedAcademyId}
+          selectedStudentId={selectedStudentId}
+          academyOptions={academyOptions}
+          childOptions={childOptions}
+          onYearChange={setSelectedYear}
+          onMonthChange={setSelectedMonth}
+          onAcademyChange={setSelectedAcademyId}
+          onStudentChange={setSelectedStudentId}
+        />
+
+        <FamilyAttendanceRecords role={role} records={filteredRecords} />
+      </div>
+    </FamilyShell>
+  );
+}
+
+function FamilyAttendanceFilter({
+  role,
+  selectedYear,
+  selectedMonth,
+  selectedAcademyId,
+  selectedStudentId,
+  academyOptions,
+  childOptions,
+  onYearChange,
+  onMonthChange,
+  onAcademyChange,
+  onStudentChange,
+}: {
+  role: FamilyRole;
+  selectedYear: number;
+  selectedMonth: number;
+  selectedAcademyId: string;
+  selectedStudentId: string;
+  academyOptions: Array<{ id: string; name: string }>;
+  childOptions: Array<{ id: string; name: string }>;
+  onYearChange: (value: number) => void;
+  onMonthChange: (value: number) => void;
+  onAcademyChange: (value: string) => void;
+  onStudentChange: (value: string) => void;
+}) {
+  return (
+    <FamilyCard>
+      <div className={`grid gap-3 ${role === "PARENT" ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+        {role === "PARENT" ? (
+          <FilterSelect label="자녀" value={selectedStudentId} onChange={onStudentChange}>
+            <option value="all">전체 자녀</option>
+            {childOptions.map((child) => (
+              <option key={child.id} value={child.id}>
+                {child.name}
+              </option>
+            ))}
+          </FilterSelect>
+        ) : null}
+        <FilterSelect label="학원" value={selectedAcademyId} onChange={onAcademyChange}>
+          <option value="all">전체 학원</option>
+          {academyOptions.map((academy) => (
+            <option key={academy.id} value={academy.id}>
+              {academy.name}
+            </option>
+          ))}
+        </FilterSelect>
+        <FilterSelect label="년도" value={String(selectedYear)} onChange={(value) => onYearChange(Number(value))}>
+          {attendanceYearOptions.map((year) => (
+            <option key={year} value={year}>
+              {year}년
+            </option>
+          ))}
+        </FilterSelect>
+        <FilterSelect label="월" value={String(selectedMonth)} onChange={(value) => onMonthChange(Number(value))}>
+          {attendanceMonthOptions.map((month) => (
+            <option key={month} value={month}>
+              {month}월
+            </option>
+          ))}
+        </FilterSelect>
+      </div>
+    </FamilyCard>
+  );
+}
+
+function FamilyAttendanceRecords({ role, records }: { role: FamilyRole; records: AttendanceRecordListItem[] }) {
+  if (records.length === 0) {
+    return (
+      <FamilyCard>
+        <EmptyState title="선택한 기간의 출석 기록이 없습니다." description="출석 기록이 생기면 이곳에 표시됩니다." />
+      </FamilyCard>
+    );
+  }
+
+  return (
+    <FamilyCard>
+      <div className="hidden overflow-hidden rounded-3xl border border-slate-200 bg-white sm:block">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+            <tr>
+              <th className="px-4 py-3">날짜</th>
+              {role === "PARENT" ? <th className="px-4 py-3">자녀</th> : null}
+              <th className="px-4 py-3">학원명</th>
+              <th className="px-4 py-3">수업명</th>
+              <th className="px-4 py-3">출석 상태</th>
+              <th className="px-4 py-3">메모</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {records.map((record) => (
+              <tr key={record.id}>
+                <td className="px-4 py-4 font-semibold text-slate-700">{record.attendanceDate}</td>
+                {role === "PARENT" ? <td className="px-4 py-4 font-bold text-slate-950">{record.studentName ?? "-"}</td> : null}
+                <td className="px-4 py-4 font-semibold text-slate-700">{record.academyName}</td>
+                <td className="px-4 py-4 font-bold text-slate-950">{record.className}</td>
+                <td className="px-4 py-4">
+                  <FamilyAttendanceStatusBadge status={record.status} />
+                </td>
+                <td className="px-4 py-4 text-slate-600">{record.memo || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid gap-3 sm:hidden">
+        {records.map((record) => (
+          <div key={record.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-500">{record.attendanceDate}</p>
+                <h3 className="mt-1 font-bold text-slate-950">{role === "PARENT" ? record.studentName : record.className}</h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  {record.academyName} · {role === "PARENT" ? record.className : record.memo || "메모 없음"}
+                </p>
+                {role === "PARENT" ? <p className="mt-2 text-sm text-slate-600">{record.memo || "메모 없음"}</p> : null}
+              </div>
+              <FamilyAttendanceStatusBadge status={record.status} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </FamilyCard>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+      >
+        {children}
+      </select>
+    </label>
+  );
+}
+
+function FamilyAttendanceStatusBadge({ status }: { status: AttendanceStatus }) {
+  return (
+    <span className={`inline-flex shrink-0 rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${attendanceStatusStyles[status]}`}>
+      {attendanceStatusLabels[status]}
+    </span>
+  );
+}
+
+function getAcademyOptions(records: AttendanceRecordListItem[]) {
+  return Array.from(new Map(records.map((record) => [record.academyId, { id: record.academyId, name: record.academyName }])).values());
+}
+
+function getChildOptions(records: AttendanceRecordListItem[], relations: ParentStudentRelationResponse[]) {
+  const relationOptions = relations.map((relation) => ({
+    id: String(relation.studentUserId),
+    name: relation.studentName,
+  }));
+  const recordOptions = records
+    .filter((record) => record.studentId && record.studentName)
+    .map((record) => ({
+      id: record.studentId ?? "",
+      name: record.studentName ?? "",
+    }));
+
+  return Array.from(new Map([...relationOptions, ...recordOptions].map((child) => [child.id, child])).values());
 }
 
 export function ParentStudentInvitationsPage({ role }: { role: FamilyRole }) {
@@ -464,7 +721,10 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
   const menu = [
     { href: config.homePath, label: config.title },
     { href: config.invitationsPath, label: config.invitationTitle },
+    { href: config.attendancePath, label: config.attendanceTitle },
   ];
+  const pageTitle =
+    mode === "dashboard" ? config.title : mode === "invitations" ? config.invitationTitle : config.attendanceTitle;
 
   return (
     <RoleGuard allowedRole={config.role}>
@@ -496,9 +756,7 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
                     Ringdu
                   </Link>
                   <p className="mt-2 text-xs font-semibold uppercase text-blue-600 lg:mt-0">{config.role}</p>
-                  <h1 className="mt-1 text-2xl font-bold text-slate-950">
-                    {mode === "dashboard" ? config.title : config.invitationTitle}
-                  </h1>
+                  <h1 className="mt-1 text-2xl font-bold text-slate-950">{pageTitle}</h1>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="text-sm font-semibold text-slate-600">{user?.name ?? "사용자"}님</span>
