@@ -17,6 +17,12 @@ import {
   updateMyAcademy,
 } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
+import {
+  attendanceStatusLabels,
+  attendanceStatusStyles,
+  mockAttendanceRecords,
+  type AttendanceStatus,
+} from "@/types/attendance";
 import type {
   AcademyStudentResponse,
   AcademyTeacherResponse,
@@ -482,12 +488,7 @@ function StudentDetailTabContent({
     );
   }
 
-  return (
-    <StudentDetailPlaceholder
-      title="출석 기록"
-      description="수업별 출석, 지각, 결석 기록을 이곳에서 확인합니다."
-    />
-  );
+  return <StudentAttendanceRecordsTab student={student} />;
 }
 
 function StudentDetailBasicTab({ student }: { student: AcademyStudentResponse }) {
@@ -646,6 +647,71 @@ function StudentClassesTab({
         />
       ) : null}
     </div>
+  );
+}
+
+function StudentAttendanceRecordsTab({ student }: { student: AcademyStudentResponse }) {
+  const records = mockAttendanceRecords.filter((record) => record.studentName === student.name);
+
+  if (records.length === 0) {
+    return (
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50/80 px-5 py-8 text-center">
+        <h3 className="text-base font-bold text-slate-950">아직 출석 기록이 없습니다.</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-600">수업 출석이 처리되면 이곳에 표시됩니다.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="hidden overflow-hidden rounded-3xl border border-slate-200 bg-white sm:block">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+            <tr>
+              <th className="px-4 py-3">날짜</th>
+              <th className="px-4 py-3">수업명</th>
+              <th className="px-4 py-3">출석 상태</th>
+              <th className="px-4 py-3">메모</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {records.map((record) => (
+              <tr key={record.id}>
+                <td className="px-4 py-4 font-semibold text-slate-700">{record.date}</td>
+                <td className="px-4 py-4 font-bold text-slate-950">{record.className}</td>
+                <td className="px-4 py-4">
+                  <StudentAttendanceStatusBadge status={record.status} />
+                </td>
+                <td className="px-4 py-4 text-slate-600">{record.memo || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid gap-3 sm:hidden">
+        {records.map((record) => (
+          <div key={record.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-500">{record.date}</p>
+                <h3 className="mt-1 font-bold text-slate-950">{record.className}</h3>
+                <p className="mt-2 text-sm text-slate-600">{record.memo || "메모 없음"}</p>
+              </div>
+              <StudentAttendanceStatusBadge status={record.status} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StudentAttendanceStatusBadge({ status }: { status: AttendanceStatus }) {
+  return (
+    <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${attendanceStatusStyles[status]}`}>
+      {attendanceStatusLabels[status]}
+    </span>
   );
 }
 
