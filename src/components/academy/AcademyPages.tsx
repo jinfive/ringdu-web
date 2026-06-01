@@ -2,13 +2,17 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
+  addAcademyClassStudent,
   ApiError,
   createTeacherInvitation,
+  getAcademyClasses,
   getAcademyStudent,
+  getAcademyStudentClasses,
   getAcademyStudents,
   getAcademyTeacherInvitations,
   getAcademyTeachers,
   getMyAcademy,
+  removeAcademyClassStudent,
   searchAccountCandidates,
   updateMyAcademy,
 } from "@/lib/api";
@@ -22,6 +26,7 @@ import type {
   TeacherInvitationResponse,
   TeacherInvitationStatus,
 } from "@/types/auth";
+import type { AcademyClassResponse } from "@/types/schedule";
 import {
   AcademyCard,
   AcademyLinkButton,
@@ -229,6 +234,7 @@ export function AcademyStudentsPage() {
               errorMessage={detailErrorMessage}
               activeTab={activeTab}
               onTabChange={setActiveTab}
+              accessToken={accessToken}
               emptyMessage="학생을 선택하면 상세 정보가 표시됩니다."
             />
           </div>
@@ -343,6 +349,7 @@ export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
         errorMessage={errorMessage}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        accessToken={accessToken}
         emptyMessage="학생 정보를 확인할 수 없습니다."
       />
     </AcademyShell>
@@ -355,6 +362,7 @@ function StudentDetailPanel({
   errorMessage,
   activeTab,
   onTabChange,
+  accessToken,
   emptyMessage,
 }: {
   student: AcademyStudentResponse | null;
@@ -362,6 +370,7 @@ function StudentDetailPanel({
   errorMessage: string;
   activeTab: StudentDetailTab;
   onTabChange: (tab: StudentDetailTab) => void;
+  accessToken: string | null;
   emptyMessage: string;
 }) {
   return (
@@ -398,7 +407,7 @@ function StudentDetailPanel({
             <GuardianConnectionBadge student={student} />
           </div>
 
-          <StudentDetailTabContent student={student} activeTab={activeTab} />
+          <StudentDetailTabContent student={student} activeTab={activeTab} accessToken={accessToken} />
         </AcademyCard>
       ) : null}
     </div>
@@ -413,8 +422,8 @@ function StudentDetailTabs({
   onTabChange: (tab: StudentDetailTab) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white p-2">
-      <div className="flex min-w-max gap-2">
+    <div className="max-w-full overflow-x-auto rounded-3xl border border-slate-200 bg-white p-2 [scrollbar-width:thin]">
+      <div className="flex w-max max-w-none gap-1.5 whitespace-nowrap pr-2">
         {studentDetailTabs.map((tab) => {
           const isActive = activeTab === tab;
           return (
@@ -422,7 +431,7 @@ function StudentDetailTabs({
               key={tab}
               type="button"
               onClick={() => onTabChange(tab)}
-              className={`h-10 rounded-2xl px-4 text-sm font-bold transition ${
+              className={`h-9 shrink-0 rounded-2xl px-3 text-xs font-bold transition sm:h-10 sm:px-4 sm:text-sm ${
                 isActive
                   ? "bg-blue-700 text-white shadow-lg shadow-blue-100"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
@@ -440,21 +449,18 @@ function StudentDetailTabs({
 function StudentDetailTabContent({
   student,
   activeTab,
+  accessToken,
 }: {
   student: AcademyStudentResponse;
   activeTab: StudentDetailTab;
+  accessToken: string | null;
 }) {
   if (activeTab === "기본 정보") {
     return <StudentDetailBasicTab student={student} />;
   }
 
   if (activeTab === "수강 수업") {
-    return (
-      <StudentDetailPlaceholder
-        title="아직 수강 수업 정보가 없습니다."
-        description="시간표에서 수업을 만들고 학생을 추가하면 이곳에 표시됩니다."
-      />
-    );
+    return <StudentClassesTab student={student} accessToken={accessToken} />;
   }
 
   if (activeTab === "상담 메모") {
@@ -495,6 +501,280 @@ function StudentDetailBasicTab({ student }: { student: AcademyStudentResponse })
       <FieldPreview label="보호자 계정 연결 상태" value={student.guardianAccountLinked ? "계정 연결됨" : "미연결"} />
       <div className="sm:col-span-2">
         <FieldPreview label="메모" value={student.memo || "-"} />
+      </div>
+    </div>
+  );
+}
+
+function StudentClassesTab({
+  student,
+  accessToken,
+}: {
+  student: AcademyStudentResponse;
+  accessToken: string | null;
+}) {
+  const [classes, setClasses] = useState<AcademyClassResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [removingClassId, setRemovingClassId] = useState<number | null>(null);
+
+  const loadClasses = useCallback(() => {
+    if (!accessToken) return;
+
+    setIsLoading(true);
+    setErrorMessage("");
+    getAcademyStudentClasses(student.id, accessToken)
+      .then((data) => {
+        setClasses(data);
+      })
+      .catch((error) => {
+        setErrorMessage(getErrorMessage(error));
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [accessToken, student.id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void Promise.resolve().then(() => {
+      if (isMounted) loadClasses();
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loadClasses]);
+
+  const handleRemoveClass = async (academyClass: AcademyClassResponse) => {
+    if (!accessToken) return;
+    const confirmed = window.confirm(`${academyClass.name} 수업에서 ${student.name} 학생을 제외할까요?`);
+    if (!confirmed) return;
+
+    setRemovingClassId(academyClass.classId);
+    setErrorMessage("");
+    try {
+      await removeAcademyClassStudent(academyClass.classId, student.id, accessToken);
+      loadClasses();
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setRemovingClassId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-lg font-bold text-slate-950">수강 수업</h3>
+          <p className="mt-1 text-sm text-slate-600">학생 상세에서 바로 수강 수업을 추가하거나 제외합니다.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-800"
+        >
+          수업 추가
+        </button>
+      </div>
+
+      {errorMessage ? (
+        <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+          {errorMessage}
+        </p>
+      ) : null}
+
+      {isLoading ? <p className="text-sm font-semibold text-slate-600">수강 수업을 불러오고 있습니다.</p> : null}
+
+      {!isLoading && classes.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 p-6">
+          <h3 className="text-lg font-bold text-slate-950">아직 수강 중인 수업이 없습니다.</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            수업을 추가해 학생의 시간표를 구성해 보세요.
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="mt-5 inline-flex h-10 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800"
+          >
+            수업 추가
+          </button>
+        </div>
+      ) : null}
+
+      {classes.length > 0 ? (
+        <div className="grid gap-3">
+          {classes.map((academyClass) => (
+            <div key={academyClass.classId} className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h4 className="font-bold text-slate-950">{academyClass.name}</h4>
+                  <p className="mt-2 text-sm font-semibold text-slate-600">
+                    {academyClass.dayLabel} {academyClass.startTime} - {academyClass.endTime}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {academyClass.classroomName} · {academyClass.teacherName ?? "담당 선생님 미지정"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleRemoveClass(academyClass)}
+                  disabled={removingClassId === academyClass.classId}
+                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl border border-red-100 bg-white px-4 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  {removingClassId === academyClass.classId ? "제외 중" : "수업에서 제외"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {isModalOpen ? (
+        <StudentClassPickerModal
+          student={student}
+          enrolledClasses={classes}
+          accessToken={accessToken}
+          onClose={() => setIsModalOpen(false)}
+          onCompleted={() => {
+            setIsModalOpen(false);
+            loadClasses();
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function StudentClassPickerModal({
+  student,
+  enrolledClasses,
+  accessToken,
+  onClose,
+  onCompleted,
+}: {
+  student: AcademyStudentResponse;
+  enrolledClasses: AcademyClassResponse[];
+  accessToken: string | null;
+  onClose: () => void;
+  onCompleted: () => void;
+}) {
+  const [classes, setClasses] = useState<AcademyClassResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [addingClassId, setAddingClassId] = useState<number | null>(null);
+  const enrolledClassIds = new Set(enrolledClasses.map((academyClass) => academyClass.classId));
+
+  useEffect(() => {
+    if (!accessToken) return;
+    let isMounted = true;
+
+    void Promise.resolve().then(() => {
+      if (!isMounted) return;
+
+      setIsLoading(true);
+      setErrorMessage("");
+      getAcademyClasses(accessToken, { status: "ACTIVE" })
+        .then((data) => {
+          if (isMounted) setClasses(data);
+        })
+        .catch((error) => {
+          if (isMounted) setErrorMessage(getErrorMessage(error));
+        })
+        .finally(() => {
+          if (isMounted) setIsLoading(false);
+        });
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken]);
+
+  const handleAddClass = async (academyClass: AcademyClassResponse) => {
+    if (!accessToken || enrolledClassIds.has(academyClass.classId)) return;
+
+    setAddingClassId(academyClass.classId);
+    setErrorMessage("");
+    try {
+      await addAcademyClassStudent(academyClass.classId, student.id, accessToken);
+      onCompleted();
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setAddingClassId(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-3 py-4 sm:items-center">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">수업 추가</h2>
+              <p className="mt-1 text-sm text-slate-600">{student.name} 학생이 수강할 수업을 선택합니다.</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
+              aria-label="수업 추가 닫기"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-3 px-5 py-5">
+          {errorMessage ? (
+            <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+              {errorMessage}
+            </p>
+          ) : null}
+
+          {isLoading ? <p className="text-sm font-semibold text-slate-600">수업 목록을 불러오고 있습니다.</p> : null}
+
+          {!isLoading && classes.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
+              추가할 수 있는 수업이 없습니다.
+            </p>
+          ) : null}
+
+          {classes.map((academyClass) => {
+            const alreadyEnrolled = enrolledClassIds.has(academyClass.classId);
+            return (
+              <div key={academyClass.classId} className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-950">{academyClass.name}</h3>
+                    <p className="mt-2 text-sm font-semibold text-slate-600">
+                      {academyClass.dayLabel} {academyClass.startTime} - {academyClass.endTime}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {academyClass.classroomName} · {academyClass.teacherName ?? "담당 선생님 미지정"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleAddClass(academyClass)}
+                    disabled={alreadyEnrolled || addingClassId !== null}
+                    className={`inline-flex h-10 shrink-0 items-center justify-center rounded-2xl px-4 text-sm font-bold transition ${
+                      alreadyEnrolled
+                        ? "cursor-not-allowed bg-slate-200 text-slate-500"
+                        : "bg-blue-700 text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    }`}
+                  >
+                    {alreadyEnrolled ? "이미 수강 중" : addingClassId === academyClass.classId ? "추가 중" : "추가"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -504,6 +504,18 @@ export async function getAcademyClass(
   });
 }
 
+export async function getAcademyStudentClasses(
+  studentProfileId: number,
+  accessToken: string,
+): Promise<AcademyClassResponse[]> {
+  return request<AcademyClassResponse[]>(`/api/academies/me/students/${studentProfileId}/classes`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 export async function updateAcademyClass(
   classId: number,
   payload: AcademyClassRequest,
@@ -529,15 +541,17 @@ export async function deleteAcademyClass(classId: number, accessToken: string): 
 
 export async function addAcademyClassStudent(
   classId: number,
-  payload: AcademyClassStudentRequest,
+  payload: AcademyClassStudentRequest | number,
   accessToken: string,
 ): Promise<AcademyClassDetailResponse> {
+  const body = typeof payload === "number" ? { studentProfileId: payload } : payload;
+
   return request<AcademyClassDetailResponse>(`/api/academies/me/classes/${classId}/students`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 }
 
@@ -552,6 +566,14 @@ export async function deleteAcademyClassStudent(
       Authorization: `Bearer ${accessToken}`,
     },
   });
+}
+
+export async function removeAcademyClassStudent(
+  classId: number,
+  studentProfileId: number,
+  accessToken: string,
+): Promise<void> {
+  await deleteAcademyClassStudent(classId, studentProfileId, accessToken);
 }
 
 export async function getStudentAcademyInvitations(
