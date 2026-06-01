@@ -30,7 +30,6 @@ import {
   EmptyState,
   FieldPreview,
   StatusBadge,
-  TabPreview,
 } from "./AcademyShell";
 import { AcademyStudentRegistrationModal } from "./AcademyStudentRegistrationModal";
 export {
@@ -90,7 +89,7 @@ export function AcademyStudentsPage() {
   return (
     <AcademyShell
       title="학생 관리"
-      description="학생과 보호자 정보를 관리하세요."
+      description="학생 정보와 수강, 상담, 수납 상태를 한 곳에서 관리합니다."
       actions={<StudentRegistrationButton onClick={() => setIsRegistrationOpen(true)} />}
     >
       <div className="space-y-6">
@@ -108,11 +107,10 @@ export function AcademyStudentsPage() {
         ) : null}
 
         <AcademyCard>
-          <div className="grid gap-3 md:grid-cols-[1.5fr_0.7fr_0.7fr_0.7fr]">
+          <div className="grid gap-3 md:grid-cols-[1.5fr_0.7fr_0.7fr]">
             <FieldPreview label="검색" value="준비 중" />
             <FieldPreview label="학년" value="전체" />
             <FieldPreview label="상태" value="전체" />
-            <FieldPreview label="미납 여부" value="전체" />
           </div>
         </AcademyCard>
 
@@ -130,26 +128,34 @@ export function AcademyStudentsPage() {
 
         {!isLoading && students.length > 0 ? (
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-            <div className="grid bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-500 md:grid-cols-[1.2fr_1fr_1fr_1fr_0.8fr]">
+            <div className="hidden bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-500 lg:grid lg:grid-cols-[1.1fr_0.9fr_1fr_1fr_0.8fr_0.8fr_0.7fr]">
               <span>이름</span>
               <span>학교/학년</span>
               <span>학생 연락처</span>
               <span>보호자 연락처</span>
+              <span>수강 수업</span>
+              <span>수납 상태</span>
               <span>상태</span>
             </div>
             {students.map((student) => (
               <Link
                 key={student.id}
                 href={`/academy/students/${student.id}`}
-                className="grid gap-2 border-t border-slate-200 px-4 py-4 text-sm text-slate-700 transition hover:bg-slate-50 md:grid-cols-[1.2fr_1fr_1fr_1fr_0.8fr]"
+                className="grid gap-3 border-t border-slate-200 px-4 py-4 text-sm text-slate-700 transition hover:bg-slate-50 sm:grid-cols-2 lg:grid-cols-[1.1fr_0.9fr_1fr_1fr_0.8fr_0.8fr_0.7fr]"
               >
-                <span className="font-semibold text-slate-950">{student.name}</span>
-                <span>
-                  {student.school || "-"} / {student.grade || "-"}
-                </span>
-                <span>{student.phone || "연락처 없음"}</span>
-                <span>{student.guardianPhone || "연락처 없음"}</span>
-                <StatusBadge>{getStudentStatusLabel(student.status)}</StatusBadge>
+                <StudentListCell label="이름" value={student.name} strong />
+                <StudentListCell label="학교/학년" value={`${student.school || "-"} / ${student.grade || "-"}`} />
+                <StudentListCell label="학생 연락처" value={student.phone || "연락처 없음"} />
+                <StudentListCell
+                  label="보호자 연락처"
+                  value={student.guardianParentPhone || student.guardianPhone || "연락처 없음"}
+                />
+                <StudentListCell label="수강 수업" value="연동 예정" muted />
+                <StudentListCell label="수납 상태" value="연동 예정" muted />
+                <div>
+                  <span className="mb-1 block text-xs font-bold text-slate-400 lg:hidden">상태</span>
+                  <StatusBadge>{getStudentStatusLabel(student.status)}</StatusBadge>
+                </div>
               </Link>
             ))}
           </div>
@@ -164,6 +170,25 @@ export function AcademyStudentsPage() {
         />
       ) : null}
     </AcademyShell>
+  );
+}
+
+function StudentListCell({
+  label,
+  value,
+  strong = false,
+  muted = false,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+  muted?: boolean;
+}) {
+  return (
+    <span className={strong ? "font-semibold text-slate-950" : muted ? "font-semibold text-slate-500" : ""}>
+      <span className="mb-1 block text-xs font-bold text-slate-400 lg:hidden">{label}</span>
+      {value}
+    </span>
   );
 }
 
@@ -195,12 +220,16 @@ function StudentRegistrationButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+const studentDetailTabs = ["기본 정보", "수강 수업", "상담 메모", "청구/수납", "출석 기록"] as const;
+type StudentDetailTab = (typeof studentDetailTabs)[number];
+
 export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
   const { accessToken, user } = useAuth();
   const isPendingApproval = user?.status === "PENDING_APPROVAL";
   const [student, setStudent] = useState<AcademyStudentResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [activeTab, setActiveTab] = useState<StudentDetailTab>("기본 정보");
 
   useEffect(() => {
     let isMounted = true;
@@ -231,7 +260,27 @@ export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
   return (
     <AcademyShell title="학생 상세" description={student ? `${student.name} 학생의 정보를 관리합니다.` : "학생 정보를 확인합니다."}>
       <div className="space-y-6">
-        <TabPreview tabs={["기본 정보", "보호자 연락처", "수강 정보 준비 중", "출석 기록 준비 중", "청구서/수강료 준비 중", "재원생 상담 준비 중"]} />
+        <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white p-2">
+          <div className="flex min-w-max gap-2">
+            {studentDetailTabs.map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`h-10 rounded-2xl px-4 text-sm font-bold transition ${
+                    isActive
+                      ? "bg-blue-700 text-white shadow-lg shadow-blue-100"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                  }`}
+                >
+                  {tab}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {errorMessage ? (
           <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
@@ -267,7 +316,7 @@ export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
             }
             </div>
 
-            <StudentDetailBasicTab student={student} />
+            <StudentDetailTabContent student={student} activeTab={activeTab} />
           </AcademyCard>
         ) : null}
       </div>
@@ -275,13 +324,62 @@ export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
   );
 }
 
+function StudentDetailTabContent({
+  student,
+  activeTab,
+}: {
+  student: AcademyStudentResponse;
+  activeTab: StudentDetailTab;
+}) {
+  if (activeTab === "기본 정보") {
+    return <StudentDetailBasicTab student={student} />;
+  }
+
+  if (activeTab === "수강 수업") {
+    return (
+      <StudentDetailPlaceholder
+        title="아직 수강 수업 정보가 없습니다."
+        description="시간표에서 수업을 만들고 학생을 추가하면 이곳에 표시됩니다."
+      />
+    );
+  }
+
+  if (activeTab === "상담 메모") {
+    return (
+      <StudentDetailPlaceholder
+        title="학생 상담 메모"
+        description="학부모 상담, 학습 상태, 특이사항을 이곳에 기록할 수 있습니다."
+        actionLabel="메모 추가"
+      />
+    );
+  }
+
+  if (activeTab === "청구/수납") {
+    return (
+      <StudentDetailPlaceholder
+        title="청구/수납"
+        description="학생별 청구서와 수강료 납부 상태를 이곳에서 관리합니다."
+      />
+    );
+  }
+
+  return (
+    <StudentDetailPlaceholder
+      title="출석 기록"
+      description="수업별 출석, 지각, 결석 기록을 이곳에서 확인합니다."
+    />
+  );
+}
+
 function StudentDetailBasicTab({ student }: { student: AcademyStudentResponse }) {
   return (
     <div className="grid gap-6 sm:grid-cols-2">
+      <FieldPreview label="학생 이름" value={student.name} />
       <FieldPreview label="학교" value={student.school || "-"} />
       <FieldPreview label="학년" value={student.grade || "-"} />
-      <FieldPreview label="이메일" value={student.email || "-"} />
       <FieldPreview label="학생 연락처" value={student.phone || "-"} />
+      <FieldPreview label="보호자 연락처" value={student.guardianParentPhone || student.guardianPhone || "-"} />
+      <FieldPreview label="보호자 계정 연결 상태" value={student.guardianAccountLinked ? "계정 연결됨" : "미연결"} />
       <StudentGuardianInfoCard student={student} />
       <div className="sm:col-span-2">
         <FieldPreview label="메모" value={student.memo || "-"} />
@@ -293,9 +391,35 @@ function StudentDetailBasicTab({ student }: { student: AcademyStudentResponse })
 function StudentGuardianInfoCard({ student }: { student: AcademyStudentResponse }) {
   return (
     <>
-      <FieldPreview label="보호자 연락처" value={student.guardianParentPhone || student.guardianPhone || "-"} />
-      <FieldPreview label="보호자 계정" value={student.guardianAccountLinked ? "계정 연결됨" : "미연결"} />
+      <FieldPreview label="보호자 이름" value={student.guardianParentName || "-"} />
+      <FieldPreview label="보호자 이메일" value={student.guardianParentEmail || "-"} />
     </>
+  );
+}
+
+function StudentDetailPlaceholder({
+  title,
+  description,
+  actionLabel,
+}: {
+  title: string;
+  description: string;
+  actionLabel?: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 p-6">
+      <h3 className="text-lg font-bold text-slate-950">{title}</h3>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{description}</p>
+      {actionLabel ? (
+        <button
+          type="button"
+          disabled
+          className="mt-5 inline-flex h-11 cursor-not-allowed items-center justify-center rounded-2xl bg-slate-200 px-4 text-sm font-bold text-slate-500"
+        >
+          {actionLabel}
+        </button>
+      ) : null}
+    </div>
   );
 }
 
