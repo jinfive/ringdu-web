@@ -5,6 +5,14 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNo
 import { AcademyCard, AcademyLinkButton, AcademyShell, EmptyState, StatusBadge } from "@/components/academy/AcademyShell";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
+  attendanceStatusLabels,
+  attendanceStatusStyles,
+  countAttendanceStatuses,
+  mockAttendanceRecords,
+  type AttendanceStatus,
+  type AttendanceRecord,
+} from "@/types/attendance";
+import {
   addAcademyClassStudent,
   ApiError,
   createAcademyClass,
@@ -45,8 +53,8 @@ type ClassForm = {
   memo: string;
 };
 
-type ClassDetailTab = "기본 정보" | "수강 학생" | "출석 관리 준비 중" | "숙제 관리 준비 중";
-const classDetailTabs: ClassDetailTab[] = ["기본 정보", "수강 학생", "출석 관리 준비 중", "숙제 관리 준비 중"];
+type ClassDetailTab = "기본 정보" | "수강 학생" | "출석 관리" | "숙제 관리 준비 중";
+const classDetailTabs: ClassDetailTab[] = ["기본 정보", "수강 학생", "출석 관리", "숙제 관리 준비 중"];
 
 export function AcademySchedulePage() {
   const { accessToken, user } = useAuth();
@@ -667,7 +675,9 @@ export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
               />
             ) : null}
 
-            {activeTab === "출석 관리 준비 중" || activeTab === "숙제 관리 준비 중" ? (
+            {activeTab === "출석 관리" ? <AcademyClassAttendancePanel scheduleClass={scheduleClass} /> : null}
+
+            {activeTab === "숙제 관리 준비 중" ? (
               <AcademyCard>
                 <h2 className="text-lg font-bold text-slate-950">{activeTab}</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">이번 작업에서는 실제 기능을 구현하지 않고 상세 화면 진입 구조만 유지합니다.</p>
@@ -678,6 +688,88 @@ export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
       </div>
     </AcademyShell>
   );
+}
+
+function AcademyClassAttendancePanel({ scheduleClass }: { scheduleClass: AcademyClassDetailResponse }) {
+  const records = getMockClassAttendanceRecords(scheduleClass);
+  const counts = countAttendanceStatuses(records);
+
+  return (
+    <AcademyCard>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-950">날짜별 출석 현황</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">출석 처리는 담당 선생님 화면에서 진행됩니다.</p>
+        </div>
+        <span className="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
+          조회 전용
+        </span>
+      </div>
+
+      <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-bold text-slate-950">2026-06-01</p>
+            <p className="mt-1 text-sm text-slate-600">
+              {scheduleClass.name} · {scheduleClass.dayLabel} {scheduleClass.startTime} - {scheduleClass.endTime}
+            </p>
+          </div>
+          <p className="text-sm font-semibold text-slate-500">mock 데이터</p>
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-4">
+          {(Object.keys(attendanceStatusLabels) as AttendanceStatus[]).map((status) => (
+            <div key={status} className="rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+              <p className="text-xs font-bold text-slate-500">{attendanceStatusLabels[status]}</p>
+              <p className="mt-2 text-xl font-black text-slate-950">{counts[status]}명</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 grid gap-3">
+          {records.map((record) => (
+            <div key={record.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-bold text-slate-950">{record.studentName}</p>
+                  <p className="mt-1 text-sm text-slate-600">{record.memo || "메모 없음"}</p>
+                </div>
+                <ScheduleAttendanceStatusBadge status={record.status} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </AcademyCard>
+  );
+}
+
+function ScheduleAttendanceStatusBadge({ status }: { status: AttendanceStatus }) {
+  return (
+    <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${attendanceStatusStyles[status]}`}>
+      {attendanceStatusLabels[status]}
+    </span>
+  );
+}
+
+function getMockClassAttendanceRecords(scheduleClass: AcademyClassDetailResponse): AttendanceRecord[] {
+  const sampleRecords = mockAttendanceRecords.filter((record) => record.classId === "sample-class");
+
+  if (scheduleClass.students.length === 0) {
+    return sampleRecords;
+  }
+
+  const statuses = Object.keys(attendanceStatusLabels) as AttendanceStatus[];
+  return scheduleClass.students.slice(0, 5).map((student, index) => ({
+    id: `class-${scheduleClass.classId}-attendance-${student.studentProfileId}`,
+    classId: String(scheduleClass.classId),
+    className: scheduleClass.name,
+    date: "2026-06-01",
+    studentId: String(student.studentProfileId),
+    studentName: student.name,
+    status: statuses[index % statuses.length],
+    memo: index === 1 ? "10분 지각" : "",
+  }));
 }
 
 function ClassDetailTabs({

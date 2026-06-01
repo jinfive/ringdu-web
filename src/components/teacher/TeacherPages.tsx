@@ -10,14 +10,22 @@ import {
   getMyTeacherInvitations,
   rejectTeacherInvitation,
 } from "@/lib/api";
+import {
+  attendanceStatusLabels,
+  attendanceStatusStyles,
+  mockAttendanceClasses,
+  mockAttendanceRecords,
+  type AttendanceStatus,
+} from "@/types/attendance";
 import type { MyTeacherInvitationResponse, TeacherInvitationStatus } from "@/types/auth";
 
 const teacherMenu = [
   { href: "/teacher", label: "선생님 홈" },
+  { href: "/teacher/attendance", label: "출석 체크" },
   { href: "/teacher/invitations", label: "초대장" },
 ];
 
-const preparingMenus = ["내 수업", "출석 승인", "숙제 관리", "공지"];
+const preparingMenus = ["내 수업", "출석 체크", "숙제 관리", "공지"];
 
 export function TeacherDashboardPage() {
   const { accessToken } = useAuth();
@@ -71,8 +79,8 @@ export function TeacherDashboardPage() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard label="받은 초대장" value={`${pendingInvitations.length}건`} />
           <SummaryCard label="연결된 학원" value={`${connectedAcademies.length}곳`} />
-          <SummaryCard label="오늘 수업" value="준비 중" muted />
-          <SummaryCard label="출석 승인" value="준비 중" muted />
+          <SummaryCard label="오늘 수업" value={`${mockAttendanceClasses.length}개`} />
+          <SummaryCard label="출석 체크" value="2건" />
         </div>
 
         <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -289,6 +297,202 @@ export function TeacherInvitationsPage() {
   );
 }
 
+export function TeacherAttendancePage() {
+  const recentRecords = mockAttendanceRecords.slice(0, 3);
+
+  return (
+    <TeacherShell title="출석 체크">
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          <SummaryCard label="오늘 수업" value={`${mockAttendanceClasses.length}개`} />
+          <SummaryCard label="출석 처리 대기" value="2건" />
+          <SummaryCard label="최근 처리" value={`${recentRecords.length}건`} />
+        </div>
+
+        <TeacherCard>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">오늘 수업</h2>
+              <p className="mt-1 text-sm text-slate-600">담당 수업의 출석을 체크합니다.</p>
+            </div>
+            <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100">
+              mock 데이터
+            </span>
+          </div>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {mockAttendanceClasses.map((attendanceClass) => (
+              <Link
+                key={attendanceClass.classId}
+                href={`/teacher/attendance/${attendanceClass.classId}`}
+                className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5 transition hover:border-blue-200 hover:bg-blue-50"
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-950">{attendanceClass.className}</h3>
+                    <p className="mt-2 text-sm font-semibold text-slate-600">
+                      {attendanceClass.dayLabel} {attendanceClass.startTime} - {attendanceClass.endTime}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">수강 학생 {attendanceClass.studentCount}명</p>
+                  </div>
+                  <span className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white">
+                    출석 체크
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </TeacherCard>
+
+        <section className="grid gap-6 xl:grid-cols-2">
+          <TeacherCard>
+            <h2 className="text-lg font-bold text-slate-950">출석 처리 대기</h2>
+            <div className="mt-4 grid gap-3">
+              {mockAttendanceClasses.map((attendanceClass) => (
+                <div key={attendanceClass.classId} className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
+                  <p className="font-bold text-slate-950">{attendanceClass.className}</p>
+                  <p className="mt-1 text-sm font-semibold text-amber-700">오늘 출석 체크 필요</p>
+                </div>
+              ))}
+            </div>
+          </TeacherCard>
+
+          <TeacherCard>
+            <h2 className="text-lg font-bold text-slate-950">최근 처리한 출석</h2>
+            <div className="mt-4 grid gap-3">
+              {recentRecords.map((record) => (
+                <div key={record.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-slate-950">{record.studentName}</p>
+                      <p className="mt-1 text-sm text-slate-600">{record.className} · {record.date}</p>
+                    </div>
+                    <AttendanceStatusBadge status={record.status} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </TeacherCard>
+        </section>
+      </div>
+    </TeacherShell>
+  );
+}
+
+export function TeacherAttendanceDetailPage({ classId }: { classId: string }) {
+  const attendanceClass = mockAttendanceClasses.find((item) => item.classId === classId) ?? mockAttendanceClasses[0];
+  const [attendanceDate, setAttendanceDate] = useState("2026-06-01");
+  const [savedMessage, setSavedMessage] = useState("");
+  const [attendanceState, setAttendanceState] = useState(() =>
+    Object.fromEntries(
+      attendanceClass.students.map((student, index) => [
+        student.studentId,
+        {
+          status: (index === 1 ? "LATE" : "PRESENT") as AttendanceStatus,
+          memo: "",
+        },
+      ]),
+    ),
+  );
+
+  const updateStudentAttendance = (studentId: string, status: AttendanceStatus, memo?: string) => {
+    setAttendanceState((current) => ({
+      ...current,
+      [studentId]: {
+        status,
+        memo: memo ?? current[studentId]?.memo ?? "",
+      },
+    }));
+    setSavedMessage("");
+  };
+
+  return (
+    <TeacherShell title="출석 체크">
+      <div className="space-y-6">
+        <TeacherCard>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase text-blue-600">ATTENDANCE</p>
+              <h2 className="mt-2 text-2xl font-bold text-slate-950">{attendanceClass.className}</h2>
+              <p className="mt-2 text-sm font-semibold text-slate-600">
+                {attendanceClass.dayLabel} {attendanceClass.startTime} - {attendanceClass.endTime} · 수강 학생 {attendanceClass.studentCount}명
+              </p>
+            </div>
+            <label className="block">
+              <span className="text-sm font-bold text-slate-700">날짜 선택</span>
+              <input
+                type="date"
+                value={attendanceDate}
+                onChange={(event) => setAttendanceDate(event.target.value)}
+                className="mt-2 h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              />
+            </label>
+          </div>
+        </TeacherCard>
+
+        {savedMessage ? (
+          <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+            {savedMessage}
+          </p>
+        ) : null}
+
+        <TeacherCard>
+          <h2 className="text-lg font-bold text-slate-950">수강 학생 목록</h2>
+          <div className="mt-4 grid gap-3">
+            {attendanceClass.students.map((student) => {
+              const current = attendanceState[student.studentId] ?? { status: "PRESENT" as AttendanceStatus, memo: "" };
+              return (
+                <div key={student.studentId} className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
+                  <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr] lg:items-start">
+                    <div>
+                      <p className="font-bold text-slate-950">{student.name}</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-600">
+                        {student.school} / {student.grade}
+                      </p>
+                    </div>
+                    <div className="grid gap-3">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {(Object.keys(attendanceStatusLabels) as AttendanceStatus[]).map((status) => (
+                          <button
+                            key={status}
+                            type="button"
+                            onClick={() => updateStudentAttendance(student.studentId, status)}
+                            className={`h-10 rounded-2xl border px-3 text-sm font-bold transition ${
+                              current.status === status
+                                ? "border-blue-700 bg-blue-700 text-white shadow-lg shadow-blue-100"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+                            }`}
+                          >
+                            {attendanceStatusLabels[status]}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        value={current.memo}
+                        onChange={(event) => updateStudentAttendance(student.studentId, current.status, event.target.value)}
+                        placeholder="메모 optional"
+                        className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-5 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setSavedMessage("출석이 저장되었습니다.")}
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-800"
+            >
+              저장하기
+            </button>
+          </div>
+        </TeacherCard>
+      </div>
+    </TeacherShell>
+  );
+}
+
 function TeacherShell({ title, children }: { title: string; children: ReactNode }) {
   const { user, logout } = useAuth();
 
@@ -415,6 +619,14 @@ function StatusBadge({ status }: { status: TeacherInvitationStatus }) {
   return (
     <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ring-black/5 ${styles[status]}`}>
       {getInvitationStatusLabel(status)}
+    </span>
+  );
+}
+
+function AttendanceStatusBadge({ status }: { status: AttendanceStatus }) {
+  return (
+    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${attendanceStatusStyles[status]}`}>
+      {attendanceStatusLabels[status]}
     </span>
   );
 }

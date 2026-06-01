@@ -18,6 +18,12 @@ import {
   getStudentParents,
   rejectParentStudentInvitation,
 } from "@/lib/api";
+import {
+  attendanceStatusLabels,
+  attendanceStatusStyles,
+  mockAttendanceRecords,
+  type AttendanceStatus,
+} from "@/types/attendance";
 import type {
   ParentStudentInvitationResponse,
   AcademyStudentInvitationResponse,
@@ -118,6 +124,7 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
         </div>
 
         <ConnectionManagementCard config={config} />
+        <AttendanceSummaryCard role={role} />
 
         <section className="grid gap-6 xl:grid-cols-2">
           <FamilyCard>
@@ -168,6 +175,47 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
         </section>
       </div>
     </FamilyShell>
+  );
+}
+
+function AttendanceSummaryCard({ role }: { role: FamilyRole }) {
+  const title = role === "PARENT" ? "자녀 출석 기록" : "내 출석 기록";
+  const description = role === "PARENT" ? "자녀의 수업 출석 상태를 확인합니다." : "최근 출석 상태를 확인합니다.";
+  const records = mockAttendanceRecords.slice(0, 3);
+
+  return (
+    <FamilyCard>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-950">{title}</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+        </div>
+        <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100">
+          조회 전용
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        {records.map((record) => (
+          <div key={record.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-bold text-slate-950">{role === "PARENT" ? record.studentName : record.className}</p>
+                <p className="mt-1 text-sm text-slate-600">{record.date}</p>
+              </div>
+              <FamilyAttendanceStatusBadge status={record.status} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </FamilyCard>
+  );
+}
+
+function FamilyAttendanceStatusBadge({ status }: { status: AttendanceStatus }) {
+  return (
+    <span className={`inline-flex shrink-0 rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${attendanceStatusStyles[status]}`}>
+      {attendanceStatusLabels[status]}
+    </span>
   );
 }
 
