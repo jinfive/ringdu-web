@@ -29,10 +29,13 @@ import type {
   AcademyStudentInvitationResponse,
 } from "@/types/auth";
 import type {
+  AttendanceAcademyOptionResponse,
   AcademyAttendanceSessionSummaryResponse,
   AcademyStudentAttendanceRecordResponse,
   AttendanceRecordSaveRequest,
   AttendanceSessionDetailResponse,
+  ParentChildAttendanceRecordResponse,
+  StudentAttendanceRecordResponse,
   TeacherTodayClassResponse,
 } from "@/types/attendance";
 import type {
@@ -605,6 +608,69 @@ export async function getAcademyStudentAttendanceRecords(
 ): Promise<AcademyStudentAttendanceRecordResponse[]> {
   return request<AcademyStudentAttendanceRecordResponse[]>(
     `/api/academies/me/students/${studentProfileId}/attendance-records`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+}
+
+export async function getStudentAcademies(accessToken: string): Promise<AttendanceAcademyOptionResponse[]> {
+  return request<AttendanceAcademyOptionResponse[]>("/api/student/academies", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getStudentAttendanceRecords(
+  query: { academyId?: number | null; year: number; month: number },
+  accessToken: string,
+): Promise<StudentAttendanceRecordResponse[]> {
+  const params = new URLSearchParams({
+    year: String(query.year),
+    month: String(query.month),
+  });
+  if (query.academyId) {
+    params.set("academyId", String(query.academyId));
+  }
+  return request<StudentAttendanceRecordResponse[]>(`/api/student/attendance-records?${params.toString()}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getParentChildAcademies(
+  studentProfileId: number,
+  accessToken: string,
+): Promise<AttendanceAcademyOptionResponse[]> {
+  return request<AttendanceAcademyOptionResponse[]>(`/api/parent/children/${studentProfileId}/academies`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getParentChildAttendanceRecords(
+  studentProfileId: number,
+  query: { academyId?: number | null; year: number; month: number },
+  accessToken: string,
+): Promise<ParentChildAttendanceRecordResponse[]> {
+  const params = new URLSearchParams({
+    year: String(query.year),
+    month: String(query.month),
+  });
+  if (query.academyId) {
+    params.set("academyId", String(query.academyId));
+  }
+  return request<ParentChildAttendanceRecordResponse[]>(
+    `/api/parent/children/${studentProfileId}/attendance-records?${params.toString()}`,
     {
       method: "GET",
       headers: {
