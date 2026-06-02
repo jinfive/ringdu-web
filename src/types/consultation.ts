@@ -4,6 +4,19 @@ export type ConsultationTopic = "학습 상담" | "생활 상담" | "진도 상�
 
 export type ConsultationRequestType = "신규 상담" | "재원생 상담";
 
+export type ConsultationAvailabilityDay = "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
+
+export type ConsultationAvailabilityType = "신규생 상담" | "재원생 상담" | "전체";
+
+export type ConsultationAvailabilitySlot = {
+  id: string;
+  dayOfWeek: ConsultationAvailabilityDay;
+  startTime: string;
+  endTime: string;
+  type: ConsultationAvailabilityType;
+  active: boolean;
+};
+
 export type ConsultationRequest = {
   id: string;
   type: ConsultationRequestType;
@@ -35,6 +48,53 @@ export const consultationStatusStyles: Record<ConsultationStatus, string> = {
 };
 
 export const consultationTopics: ConsultationTopic[] = ["학습 상담", "생활 상담", "진도 상담", "기타"];
+
+export const consultationAvailabilityDays: Array<{ value: ConsultationAvailabilityDay; shortLabel: string; label: string }> = [
+  { value: "MONDAY", shortLabel: "월", label: "월요일" },
+  { value: "TUESDAY", shortLabel: "화", label: "화요일" },
+  { value: "WEDNESDAY", shortLabel: "수", label: "수요일" },
+  { value: "THURSDAY", shortLabel: "목", label: "목요일" },
+  { value: "FRIDAY", shortLabel: "금", label: "금요일" },
+  { value: "SATURDAY", shortLabel: "토", label: "토요일" },
+  { value: "SUNDAY", shortLabel: "일", label: "일요일" },
+];
+
+export const consultationAvailabilityTypes: ConsultationAvailabilityType[] = ["신규생 상담", "재원생 상담", "전체"];
+
+export const mockConsultationAvailabilitySlots: ConsultationAvailabilitySlot[] = [
+  {
+    id: "availability-1",
+    dayOfWeek: "MONDAY",
+    startTime: "14:00",
+    endTime: "14:30",
+    type: "전체",
+    active: true,
+  },
+  {
+    id: "availability-2",
+    dayOfWeek: "MONDAY",
+    startTime: "15:00",
+    endTime: "15:30",
+    type: "신규생 상담",
+    active: true,
+  },
+  {
+    id: "availability-3",
+    dayOfWeek: "TUESDAY",
+    startTime: "16:00",
+    endTime: "16:30",
+    type: "재원생 상담",
+    active: true,
+  },
+  {
+    id: "availability-4",
+    dayOfWeek: "TUESDAY",
+    startTime: "17:00",
+    endTime: "17:30",
+    type: "전체",
+    active: false,
+  },
+];
 
 export const consultationTimeSlots = ["14:00", "14:30", "15:00", "15:30", "16:00", "16:30"];
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   consultationStatusLabels,
@@ -39,14 +40,23 @@ export function ConsultationRequestPanel({ onClose }: ConsultationRequestPanelPr
               <h2 className="text-xl font-bold text-slate-950">상담 요청</h2>
               <p className="mt-1 text-sm text-slate-600">신규 상담 요청과 재원생 상담 요청을 확인합니다.</p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
-              aria-label="상담 요청 패널 닫기"
-            >
-              ×
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href="/academy/settings"
+                onClick={onClose}
+                className="inline-flex h-10 items-center justify-center rounded-2xl bg-blue-700 px-3 text-sm font-bold text-white transition hover:bg-blue-800"
+              >
+                상담 가능 시간 설정
+              </Link>
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
+                aria-label="상담 요청 패널 닫기"
+              >
+                ×
+              </button>
+            </div>
           </div>
           <div className="mt-4 flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
             {(["신규 상담", "재원생 상담"] as ConsultationTab[]).map((tab) => (

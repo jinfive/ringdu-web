@@ -18,6 +18,7 @@ import {
   updateMyAcademy,
 } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { ConsultationAvailabilitySettings } from "@/components/consultation/ConsultationAvailabilitySettings";
 import { ConsultationRequestPanel, ConsultationStatusBadge } from "@/components/consultation/ConsultationRequestPanel";
 import {
   attendanceStatusLabels,
@@ -1724,70 +1725,73 @@ export function AcademySettingsPage() {
 
   return (
     <AcademyShell title="학원 설정" description="학원 기본 정보와 계정 정보를 관리합니다.">
-      <AcademyCard>
-        {isLoading ? (
-          <p className="text-sm font-semibold text-slate-600">학원 정보를 불러오고 있습니다.</p>
-        ) : null}
+      <div className="space-y-6">
+        <AcademyCard>
+          {isLoading ? (
+            <p className="text-sm font-semibold text-slate-600">학원 정보를 불러오고 있습니다.</p>
+          ) : null}
 
-        {successMessage ? (
-          <p className="mb-5 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
-            {successMessage}
-          </p>
-        ) : null}
+          {successMessage ? (
+            <p className="mb-5 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+              {successMessage}
+            </p>
+          ) : null}
 
-        {errorMessage ? (
-          <p className="mb-5 whitespace-pre-line rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-            {errorMessage}
-          </p>
-        ) : null}
+          {errorMessage ? (
+            <p className="mb-5 whitespace-pre-line rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+              {errorMessage}
+            </p>
+          ) : null}
 
-        <form className="grid gap-4" onSubmit={handleSubmit}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <AcademyTextField
-              label="학원명"
-              value={form.name}
-              onChange={(value) => setForm((current) => ({ ...current, name: value }))}
-              required
-            />
-            <AcademyTextField
-              label="대표자명"
-              value={form.representativeName}
-              onChange={(value) => setForm((current) => ({ ...current, representativeName: value }))}
-              required
-            />
-            <AcademyTextField
-              label="전화번호"
-              value={form.phone}
-              onChange={(value) => setForm((current) => ({ ...current, phone: value }))}
-              required
-            />
-            <AcademyTextField
-              label="우편번호"
-              value={form.postalCode}
-              onChange={(value) => setForm((current) => ({ ...current, postalCode: value }))}
-            />
-            <AcademyTextField
-              label="기본 주소"
-              value={form.address}
-              onChange={(value) => setForm((current) => ({ ...current, address: value }))}
-            />
-            <AcademyTextField
-              label="상세 주소"
-              value={form.detailAddress}
-              onChange={(value) => setForm((current) => ({ ...current, detailAddress: value }))}
-            />
-          </div>
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
-            >
-              {isSaving ? "저장 중" : "저장"}
-            </button>
-          </div>
-        </form>
-      </AcademyCard>
+          <form className="grid gap-4" onSubmit={handleSubmit}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <AcademyTextField
+                label="학원명"
+                value={form.name}
+                onChange={(value) => setForm((current) => ({ ...current, name: value }))}
+                required
+              />
+              <AcademyTextField
+                label="대표자명"
+                value={form.representativeName}
+                onChange={(value) => setForm((current) => ({ ...current, representativeName: value }))}
+                required
+              />
+              <AcademyTextField
+                label="전화번호"
+                value={form.phone}
+                onChange={(value) => setForm((current) => ({ ...current, phone: value }))}
+                required
+              />
+              <AcademyTextField
+                label="우편번호"
+                value={form.postalCode}
+                onChange={(value) => setForm((current) => ({ ...current, postalCode: value }))}
+              />
+              <AcademyTextField
+                label="기본 주소"
+                value={form.address}
+                onChange={(value) => setForm((current) => ({ ...current, address: value }))}
+              />
+              <AcademyTextField
+                label="상세 주소"
+                value={form.detailAddress}
+                onChange={(value) => setForm((current) => ({ ...current, detailAddress: value }))}
+              />
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
+              >
+                {isSaving ? "저장 중" : "저장"}
+              </button>
+            </div>
+          </form>
+        </AcademyCard>
+        <ConsultationAvailabilitySettings />
+      </div>
     </AcademyShell>
   );
 }

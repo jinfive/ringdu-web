@@ -130,7 +130,10 @@ export function ParentConsultationRequestPage() {
         </ParentConsultationSection>
 
         <ParentConsultationSection title="시간 선택">
-          <p className="mb-3 text-sm font-semibold text-slate-600">{selectedDate} 상담 가능 시간</p>
+          {/* TODO: GET /api/academies/{academyId}/consultation-availability로 자녀 학원의 상담 가능 시간을 조회한다. */}
+          <p className="mb-3 text-sm font-semibold text-slate-600">
+            {selectedDate} 학원이 등록한 상담 가능 시간 중 선택합니다.
+          </p>
           <ConsultationTimeSlots
             slots={consultationTimeSlots}
             disabledSlots={disabledConsultationTimeSlots}
