@@ -195,7 +195,15 @@ export function AcademyDashboard() {
                 오늘 예정된 재원생 상담 요청과 승인 일정을 확인합니다.
               </p>
             </div>
-            <StatusBadge>{todayConsultations.length}건</StatusBadge>
+            <div className="flex flex-col gap-2 sm:items-end">
+              <StatusBadge>{todayConsultations.length}건</StatusBadge>
+              <Link
+                href="/academy/consultations"
+                className="inline-flex h-10 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800"
+              >
+                상담 예약 보기
+              </Link>
+            </div>
           </div>
           {todayConsultations.length === 0 ? (
             <p className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-4 py-6 text-center text-sm font-semibold text-slate-500">
@@ -206,7 +214,7 @@ export function AcademyDashboard() {
               {todayConsultations.map((consultation) => (
                 <Link
                   key={consultation.consultationRequestId}
-                  href="/academy/students"
+                  href="/academy/consultations"
                   className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 text-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 sm:grid-cols-[0.8fr_1fr_1fr_auto] sm:items-center"
                 >
                   <span className="font-black text-slate-950">

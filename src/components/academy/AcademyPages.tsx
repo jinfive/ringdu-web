@@ -17,10 +17,23 @@ import {
   removeAcademyClassStudent,
   searchAccountCandidates,
   updateMyAcademy,
+  approveAcademyConsultationRequest,
+  completeAcademyConsultationRequest,
+  rejectAcademyConsultationRequest,
 } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ConsultationAvailabilitySettings } from "@/components/consultation/ConsultationAvailabilitySettings";
-import { ConsultationRequestPanel, ConsultationStatusBadge } from "@/components/consultation/ConsultationRequestPanel";
+import { ConsultationRequestPanel } from "@/components/consultation/ConsultationRequestPanel";
+import {
+  AcademyConsultationCalendarPage,
+  ConsultationDetailModal,
+  ConsultationTimeline,
+  compareConsultationTime,
+  getCurrentMonthFilter,
+  getMonthRange,
+  getYearOptions,
+  type ConsultationMemoDraft,
+} from "@/components/consultation/AcademyConsultationManagement";
 import {
   attendanceStatusLabels,
   attendanceStatusStyles,
@@ -202,13 +215,16 @@ export function AcademyStudentsPage() {
                 신규 상담 요청과 재원생 상담 요청을 확인합니다.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsConsultationPanelOpen(true)}
-              className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800"
-            >
-              상담 요청 보기
-            </button>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setIsConsultationPanelOpen(true)}
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800"
+              >
+                상담 요청 보기
+              </button>
+              <AcademyLinkButton href="/academy/consultations">전체 상담 보기</AcademyLinkButton>
+            </div>
           </div>
         </AcademyCard>
 
@@ -856,9 +872,16 @@ function StudentConsultationMemoTab({
   student: AcademyStudentResponse;
   accessToken: string | null;
 }) {
+  const initialMonth = getCurrentMonthFilter();
+  const [selectedYear, setSelectedYear] = useState(initialMonth.year);
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth.month);
   const [requests, setRequests] = useState<ConsultationRequestResponse[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<ConsultationRequestResponse | null>(null);
+  const [memoDrafts, setMemoDrafts] = useState<Record<number, ConsultationMemoDraft>>({});
+  const [processingId, setProcessingId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const monthRange = useMemo(() => getMonthRange(selectedYear, selectedMonth), [selectedMonth, selectedYear]);
 
   const loadRequests = useCallback(() => {
     if (!accessToken) {
@@ -869,24 +892,41 @@ function StudentConsultationMemoTab({
     setErrorMessage("");
     getAcademyConsultationRequests(accessToken, {
       studentProfileId: student.id,
+      from: monthRange.from,
+      to: monthRange.to,
     })
       .then(setRequests)
       .catch((error) => setErrorMessage(getErrorMessage(error)))
       .finally(() => setIsLoading(false));
-  }, [accessToken, student.id]);
+  }, [accessToken, monthRange.from, monthRange.to, student.id]);
 
   useEffect(() => {
     void Promise.resolve().then(loadRequests);
   }, [loadRequests]);
 
-  const groupedRequests = useMemo(
-    () => ({
-      requested: requests.filter((request) => request.status === "REQUESTED"),
-      scheduled: requests.filter((request) => request.status === "APPROVED"),
-      completed: requests.filter((request) => request.status === "COMPLETED"),
-    }),
-    [requests],
-  );
+  const sortedRequests = useMemo(() => [...requests].sort(compareConsultationTime), [requests]);
+
+  const processRequest = async (request: ConsultationRequestResponse, action: "approve" | "reject" | "complete") => {
+    if (!accessToken) return;
+
+    setProcessingId(request.consultationRequestId);
+    setErrorMessage("");
+    try {
+      if (action === "approve") {
+        await approveAcademyConsultationRequest(request.consultationRequestId, accessToken, "확인했습니다.");
+      } else if (action === "reject") {
+        await rejectAcademyConsultationRequest(request.consultationRequestId, accessToken, "일정 확인 후 거절했습니다.");
+      } else {
+        await completeAcademyConsultationRequest(request.consultationRequestId, accessToken, "상담을 완료했습니다.");
+      }
+      await loadRequests();
+      setSelectedRequest(null);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -897,13 +937,38 @@ function StudentConsultationMemoTab({
             상담 요청이 승인되면 이곳에서 상담 이력을 관리할 수 있습니다.
           </p>
         </div>
-        <button
-          type="button"
-          disabled
-          className="inline-flex h-10 items-center justify-center rounded-2xl bg-slate-200 px-4 text-sm font-bold text-slate-500"
-        >
-          메모 추가 준비 중
-        </button>
+        <AcademyLinkButton href="/academy/consultations">전체 상담 보기</AcademyLinkButton>
+      </div>
+
+      <div className="grid gap-3 rounded-3xl border border-slate-200 bg-slate-50/80 p-4 sm:grid-cols-2">
+        <label className="grid gap-2">
+          <span className="text-sm font-bold text-slate-700">년도</span>
+          <select
+            value={selectedYear}
+            onChange={(event) => setSelectedYear(Number(event.target.value))}
+            className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+          >
+            {getYearOptions().map((year) => (
+              <option key={year} value={year}>
+                {year}년
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-2">
+          <span className="text-sm font-bold text-slate-700">월</span>
+          <select
+            value={selectedMonth}
+            onChange={(event) => setSelectedMonth(Number(event.target.value))}
+            className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+          >
+            {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
+              <option key={month} value={month}>
+                {month}월
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {errorMessage ? (
@@ -921,55 +986,27 @@ function StudentConsultationMemoTab({
 
       {isLoading ? <p className="text-sm font-semibold text-slate-600">상담 요청을 불러오고 있습니다.</p> : null}
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        <ConsultationMemoColumn
-          title="상담 요청"
-          requests={groupedRequests.requested}
-          emptyText={`${student.name} 학생의 대기 중인 상담 요청이 없습니다.`}
-        />
-        <ConsultationMemoColumn
-          title="상담 예정"
-          requests={groupedRequests.scheduled}
-          emptyText="승인된 상담 일정이 없습니다."
-        />
-        <ConsultationMemoColumn
-          title="상담 완료 기록"
-          requests={groupedRequests.completed}
-          emptyText="완료된 상담 기록이 없습니다."
-        />
-      </div>
-    </div>
-  );
-}
+      {!isLoading && sortedRequests.length === 0 ? (
+        <p className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
+          선택한 기간의 상담 기록이 없습니다.
+          <br />
+          상담 요청이 승인되면 이곳에 표시됩니다.
+        </p>
+      ) : null}
 
-function ConsultationMemoColumn({
-  title,
-  requests,
-  emptyText,
-}: {
-  title: string;
-  requests: ConsultationRequestResponse[];
-  emptyText: string;
-}) {
-  return (
-    <section className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
-      <h4 className="font-bold text-slate-950">{title}</h4>
-      {requests.length === 0 ? <p className="mt-3 text-sm leading-6 text-slate-600">{emptyText}</p> : null}
-      <div className="mt-3 grid gap-3">
-        {requests.map((request) => (
-          <article key={request.consultationRequestId} className="rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="font-bold text-slate-950">{request.topicLabel}</p>
-              <ConsultationStatusBadge status={request.status} />
-            </div>
-            <p className="mt-2 text-sm font-semibold text-slate-600">
-              {request.requestedDate} {normalizeTime(request.requestedStartTime)} - {normalizeTime(request.requestedEndTime)}
-            </p>
-            <p className="mt-2 text-sm leading-6 text-slate-700">{request.content || "요청 내용이 없습니다."}</p>
-          </article>
-        ))}
-      </div>
-    </section>
+      {sortedRequests.length > 0 ? <ConsultationTimeline requests={sortedRequests} onSelect={setSelectedRequest} /> : null}
+
+      {selectedRequest ? (
+        <ConsultationDetailModal
+          request={selectedRequest}
+          memoDraft={memoDrafts[selectedRequest.consultationRequestId]}
+          processing={processingId === selectedRequest.consultationRequestId}
+          onClose={() => setSelectedRequest(null)}
+          onProcess={processRequest}
+          onMemoSave={(requestId, memo) => setMemoDrafts((current) => ({ ...current, [requestId]: memo }))}
+        />
+      ) : null}
+    </div>
   );
 }
 
@@ -1619,29 +1656,7 @@ function TeacherInvitationButton({ onClick }: { onClick: () => void }) {
 }
 
 export function AcademyConsultationsPage() {
-  return (
-    <AcademyShell
-      title="신규 상담"
-      description="등록 전 문의와 신규 상담 예약 상태를 관리합니다."
-      actions={<AcademyLinkButton href="/academy/consultations/new">신규 상담 등록</AcademyLinkButton>}
-    >
-      <div className="space-y-6">
-        <AcademyCard>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <FieldPreview label="상태" value="전체" />
-            <FieldPreview label="상담일" value="전체" />
-            <FieldPreview label="상담 유형" value="전체" />
-            <FieldPreview label="담당자" value="전체" />
-          </div>
-        </AcademyCard>
-        <EmptyState
-          title="신규 상담 내역이 없습니다."
-          description="등록 전 문의는 이 화면에서 관리하고, 재원생 상담은 학생 상세 화면에서 관리합니다."
-          action={<AcademyLinkButton href="/academy/consultations/new">신규 상담 등록</AcademyLinkButton>}
-        />
-      </div>
-    </AcademyShell>
-  );
+  return <AcademyConsultationCalendarPage />;
 }
 
 export function AcademyConsultationNewPage() {
@@ -1920,9 +1935,6 @@ function fallbackInvitationMessage() {
   return "Ringdu에서 선생님 초대장을 보냈습니다.\n초대를 수락하면 해당 학원의 선생님으로 연결됩니다.";
 }
 
-function normalizeTime(time: string) {
-  return time.slice(0, 5);
-}
 
 function formatDate(value: string | null) {
   if (!value) {
