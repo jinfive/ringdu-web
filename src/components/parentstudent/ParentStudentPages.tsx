@@ -573,12 +573,27 @@ function FamilyAttendanceStatusBadge({ status }: { status: AttendanceStatus }) {
 }
 
 function getChildOptions(relations: ParentStudentRelationResponse[]) {
-  return relations.flatMap((relation) =>
-    relation.studentProfiles.map((profile) => ({
+  return relations.flatMap((relation) => {
+    const profileOptions = (relation.studentProfiles ?? []).map((profile) => ({
       id: String(profile.studentProfileId),
       name: profile.studentName || relation.studentName,
-    })),
-  );
+    }));
+
+    if (profileOptions.length > 0) {
+      return profileOptions;
+    }
+
+    if (relation.studentProfileId) {
+      return [
+        {
+          id: String(relation.studentProfileId),
+          name: relation.studentName,
+        },
+      ];
+    }
+
+    return [];
+  });
 }
 
 function toAcademyOptions(academies: AttendanceAcademyOptionResponse[]) {

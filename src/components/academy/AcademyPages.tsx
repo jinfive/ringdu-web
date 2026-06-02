@@ -868,7 +868,6 @@ function StudentConsultationMemoTab({
     setIsLoading(true);
     setErrorMessage("");
     getAcademyConsultationRequests(accessToken, {
-      type: "ENROLLED_STUDENT",
       studentProfileId: student.id,
     })
       .then(setRequests)

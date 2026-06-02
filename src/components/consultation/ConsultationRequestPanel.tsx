@@ -50,7 +50,7 @@ export function ConsultationRequestPanel({ onClose }: ConsultationRequestPanelPr
     setIsLoading(true);
     setErrorMessage("");
     try {
-      const response = await getAcademyConsultationRequests(accessToken, { type: "ENROLLED_STUDENT" });
+      const response = await getAcademyConsultationRequests(accessToken);
       setRequests(response);
     } catch (error) {
       setErrorMessage(error instanceof ApiError ? error.message : "상담 요청을 불러오지 못했습니다.");

@@ -68,7 +68,6 @@ export function AcademyDashboard() {
       getAcademyConsultationRequests(accessToken, {
         from: todayKey,
         to: todayKey,
-        type: "ENROLLED_STUDENT",
       }),
     ])
       .then(([academyResponse, dashboardResponse, consultationResponse]) => {
@@ -96,7 +95,6 @@ export function AcademyDashboard() {
       getAcademyConsultationRequests(accessToken, {
         from: todayKey,
         to: todayKey,
-        type: "ENROLLED_STUDENT",
       }),
     ])
       .then(([academyResponse, dashboardResponse, consultationResponse]) => {

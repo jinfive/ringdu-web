@@ -226,7 +226,8 @@ export type ParentStudentRelationResponse = {
   studentName: string;
   studentEmail: string;
   status: "ACTIVE" | "INACTIVE";
-  studentProfiles: Array<{
+  studentProfileId?: number | null;
+  studentProfiles?: Array<{
     studentProfileId: number;
     studentName: string;
     academyId: number;
