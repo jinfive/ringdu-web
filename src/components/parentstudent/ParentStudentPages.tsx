@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { ParentConsultationRequestPage } from "@/components/consultation/ParentConsultationRequestPage";
 import {
   acceptParentStudentInvitation,
   acceptStudentAcademyInvitation,
@@ -42,7 +43,7 @@ import type {
 } from "@/types/auth";
 
 type FamilyRole = "PARENT" | "STUDENT";
-type PageMode = "dashboard" | "invitations" | "attendance";
+type PageMode = "dashboard" | "invitations" | "attendance" | "consultations";
 type InvitationTab = "connected" | "received" | "sent";
 
 type PageConfig = {
@@ -50,9 +51,11 @@ type PageConfig = {
   homePath: string;
   invitationsPath: string;
   attendancePath: string;
+  consultationPath: string;
   title: string;
   invitationTitle: string;
   attendanceTitle: string;
+  consultationTitle: string;
   sendTitle: string;
   managementTitle: string;
   managementDescription: string;
@@ -74,9 +77,11 @@ const configs: Record<FamilyRole, PageConfig> = {
     homePath: "/parent",
     invitationsPath: "/parent/invitations",
     attendancePath: "/parent/attendance",
+    consultationPath: "/parent/consultations",
     title: "학부모 홈",
     invitationTitle: "자녀 연결",
     attendanceTitle: "자녀 출석 기록",
+    consultationTitle: "자녀 상담 요청",
     sendTitle: "자녀에게 연결 요청 보내기",
     managementTitle: "자녀 연결",
     managementDescription: "자녀와 연결하면 출석, 시간표, 청구 정보를 확인할 수 있습니다.",
@@ -96,9 +101,11 @@ const configs: Record<FamilyRole, PageConfig> = {
     homePath: "/student",
     invitationsPath: "/student/invitations",
     attendancePath: "/student/attendance",
+    consultationPath: "/student",
     title: "학생 홈",
     invitationTitle: "보호자 연결",
     attendanceTitle: "내 출석 기록",
+    consultationTitle: "상담 요청",
     sendTitle: "보호자에게 연결 요청 보내기",
     managementTitle: "보호자 연결",
     managementDescription: "보호자와 연결하면 학원 생활 정보를 함께 확인할 수 있습니다.",
@@ -141,6 +148,7 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
 
         <ConnectionManagementCard config={config} />
         <AttendanceSummaryCard role={role} />
+        {role === "PARENT" ? <ParentConsultationSummaryCard /> : null}
 
         <section className="grid gap-6 xl:grid-cols-2">
           <FamilyCard>
@@ -215,6 +223,26 @@ function AttendanceSummaryCard({ role }: { role: FamilyRole }) {
           학원별, 기간별 출석 기록 화면으로 이동합니다.
         </p>
         <FamilyLinkButton href={href}>출석 기록 보기</FamilyLinkButton>
+      </div>
+    </FamilyCard>
+  );
+}
+
+function ParentConsultationSummaryCard() {
+  return (
+    <FamilyCard>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-950">상담 요청</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">자녀의 상담 일정을 요청합니다.</p>
+        </div>
+        <span className="inline-flex w-fit rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 ring-1 ring-amber-100">
+          mock
+        </span>
+      </div>
+      <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-semibold text-slate-600">자녀와 일정을 선택해 상담을 요청합니다.</p>
+        <FamilyLinkButton href="/parent/consultations">상담 요청하기</FamilyLinkButton>
       </div>
     </FamilyCard>
   );
@@ -348,6 +376,22 @@ export function ParentStudentAttendancePage({ role }: { role: FamilyRole }) {
         />
 
         <FamilyAttendanceRecords role={role} records={records} isLoading={isAttendanceLoading} />
+      </div>
+    </FamilyShell>
+  );
+}
+
+export function ParentConsultationsPage() {
+  const config = configs.PARENT;
+
+  return (
+    <FamilyShell config={config} mode="consultations">
+      <div className="space-y-6">
+        <FamilyCard>
+          <h2 className="text-lg font-bold text-slate-950">자녀 상담 요청</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">상담할 자녀와 일정을 선택해 주세요.</p>
+        </FamilyCard>
+        <ParentConsultationRequestPage />
       </div>
     </FamilyShell>
   );
@@ -845,7 +889,13 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
     { href: config.attendancePath, label: config.attendanceTitle },
   ];
   const pageTitle =
-    mode === "dashboard" ? config.title : mode === "invitations" ? config.invitationTitle : config.attendanceTitle;
+    mode === "dashboard"
+      ? config.title
+      : mode === "invitations"
+        ? config.invitationTitle
+        : mode === "attendance"
+          ? config.attendanceTitle
+          : config.consultationTitle;
 
   return (
     <RoleGuard allowedRole={config.role}>
