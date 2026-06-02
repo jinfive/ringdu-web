@@ -1,13 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
+import {
+  ApiError,
+  approveAcademyConsultationRequest,
+  completeAcademyConsultationRequest,
+  getAcademyConsultationRequests,
+  rejectAcademyConsultationRequest,
+} from "@/lib/api";
 import {
   consultationStatusLabels,
   consultationStatusStyles,
-  mockConsultationRequests,
-  type ConsultationRequest,
-  type ConsultationRequestType,
+  type ConsultationRequestResponse,
   type ConsultationStatus,
 } from "@/types/consultation";
 
@@ -15,20 +21,60 @@ type ConsultationRequestPanelProps = {
   onClose: () => void;
 };
 
-type ConsultationTab = "신규 상담" | "재원생 상담";
+type ConsultationTab = "NEW_STUDENT" | "ENROLLED_STUDENT";
 
 export function ConsultationRequestPanel({ onClose }: ConsultationRequestPanelProps) {
-  const [activeTab, setActiveTab] = useState<ConsultationTab>("신규 상담");
-  const [requests, setRequests] = useState<ConsultationRequest[]>(mockConsultationRequests);
-  const filteredRequests = useMemo(
-    () => requests.filter((request) => request.type === activeTab),
-    [activeTab, requests],
-  );
+  const { accessToken } = useAuth();
+  const [activeTab, setActiveTab] = useState<ConsultationTab>("NEW_STUDENT");
+  const [requests, setRequests] = useState<ConsultationRequestResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [processingId, setProcessingId] = useState<number | null>(null);
 
-  const updateStatus = (requestId: string, status: ConsultationStatus) => {
-    setRequests((current) =>
-      current.map((request) => (request.id === requestId ? { ...request, status } : request)),
-    );
+  const loadRequests = useCallback(async () => {
+    if (!accessToken) {
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage("");
+    try {
+      const response = await getAcademyConsultationRequests(accessToken, { type: "ENROLLED_STUDENT" });
+      setRequests(response);
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "상담 요청을 불러오지 못했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => loadRequests());
+  }, [loadRequests]);
+
+  const filteredRequests = useMemo(() => (activeTab === "ENROLLED_STUDENT" ? requests : []), [activeTab, requests]);
+
+  const processRequest = async (requestId: number, action: "approve" | "reject" | "complete") => {
+    if (!accessToken) {
+      return;
+    }
+
+    setProcessingId(requestId);
+    setErrorMessage("");
+    try {
+      if (action === "approve") {
+        await approveAcademyConsultationRequest(requestId, accessToken, "확인했습니다.");
+      } else if (action === "reject") {
+        await rejectAcademyConsultationRequest(requestId, accessToken, "일정 확인 후 거절했습니다.");
+      } else {
+        await completeAcademyConsultationRequest(requestId, accessToken, "상담을 완료했습니다.");
+      }
+      await loadRequests();
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "상담 요청 상태를 변경하지 못했습니다.");
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   return (
@@ -54,12 +100,15 @@ export function ConsultationRequestPanel({ onClose }: ConsultationRequestPanelPr
                 className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
                 aria-label="상담 요청 패널 닫기"
               >
-                ×
+                x
               </button>
             </div>
           </div>
           <div className="mt-4 flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
-            {(["신규 상담", "재원생 상담"] as ConsultationTab[]).map((tab) => (
+            {([
+              ["NEW_STUDENT", "신규 상담"],
+              ["ENROLLED_STUDENT", "재원생 상담"],
+            ] as Array<[ConsultationTab, string]>).map(([tab, label]) => (
               <button
                 key={tab}
                 type="button"
@@ -68,16 +117,43 @@ export function ConsultationRequestPanel({ onClose }: ConsultationRequestPanelPr
                   activeTab === tab ? "bg-blue-700 text-white shadow-sm" : "text-slate-600 hover:bg-white"
                 }`}
               >
-                {tab}
+                {label}
               </button>
             ))}
           </div>
         </div>
 
         <div className="grid gap-4 px-5 py-5">
-          {filteredRequests.map((request) => (
-            <ConsultationRequestCard key={request.id} request={request} onStatusChange={updateStatus} />
-          ))}
+          {errorMessage ? (
+            <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+              <p>{errorMessage}</p>
+              <button type="button" onClick={loadRequests} className="mt-2 font-bold text-red-700 underline">
+                다시 시도
+              </button>
+            </div>
+          ) : null}
+          {activeTab === "NEW_STUDENT" ? (
+            <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
+              신규생 비회원 상담 요청 API는 후속 작업에서 연결합니다.
+            </p>
+          ) : isLoading ? (
+            <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
+              상담 요청을 불러오는 중입니다.
+            </p>
+          ) : filteredRequests.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
+              재원생 상담 요청이 없습니다.
+            </p>
+          ) : (
+            filteredRequests.map((request) => (
+              <ConsultationRequestCard
+                key={request.consultationRequestId}
+                request={request}
+                processing={processingId === request.consultationRequestId}
+                onProcess={processRequest}
+              />
+            ))
+          )}
         </div>
       </section>
     </div>
@@ -86,10 +162,12 @@ export function ConsultationRequestPanel({ onClose }: ConsultationRequestPanelPr
 
 function ConsultationRequestCard({
   request,
-  onStatusChange,
+  processing,
+  onProcess,
 }: {
-  request: ConsultationRequest;
-  onStatusChange: (requestId: string, status: ConsultationStatus) => void;
+  request: ConsultationRequestResponse;
+  processing: boolean;
+  onProcess: (requestId: number, action: "approve" | "reject" | "complete") => void;
 }) {
   return (
     <article className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5">
@@ -100,21 +178,37 @@ function ConsultationRequestCard({
             <ConsultationStatusBadge status={request.status} />
           </div>
           <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-            <RequestField label="보호자 연락처" value={request.guardianPhone} />
-            <RequestField label="희망 날짜/시간" value={`${request.preferredDate} ${request.preferredTime}`} />
-            <RequestField label="상담 유형" value={request.topic} />
+            <RequestField label="보호자 연락처" value="학부모 계정 연결" />
+            <RequestField
+              label="희망 날짜/시간"
+              value={`${request.requestedDate} ${normalizeTime(request.requestedStartTime)} - ${normalizeTime(request.requestedEndTime)}`}
+            />
+            <RequestField label="상담 유형" value={request.topicLabel} />
             <RequestField label="학원" value={request.academyName} />
             {request.teacherName ? <RequestField label="담당 선생님" value={request.teacherName} /> : null}
-            {request.className ? <RequestField label="수업" value={request.className} /> : null}
           </div>
           <p className="mt-4 whitespace-pre-line rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-slate-700">
-            {request.message}
+            {request.content || "요청 내용이 없습니다."}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
-          <RequestAction label="수락" onClick={() => onStatusChange(request.id, "APPROVED")} disabled={request.status === "APPROVED"} />
-          <RequestAction label="거절" onClick={() => onStatusChange(request.id, "REJECTED")} disabled={request.status === "REJECTED"} subtle />
-          <RequestAction label="완료 처리" onClick={() => onStatusChange(request.id, "COMPLETED")} disabled={request.status === "COMPLETED"} done />
+          <RequestAction
+            label="수락"
+            onClick={() => onProcess(request.consultationRequestId, "approve")}
+            disabled={processing || request.status === "APPROVED" || request.status === "COMPLETED"}
+          />
+          <RequestAction
+            label="거절"
+            onClick={() => onProcess(request.consultationRequestId, "reject")}
+            disabled={processing || request.status === "REJECTED" || request.status === "COMPLETED"}
+            subtle
+          />
+          <RequestAction
+            label="완료 처리"
+            onClick={() => onProcess(request.consultationRequestId, "complete")}
+            disabled={processing || request.status === "COMPLETED"}
+            done
+          />
         </div>
       </div>
     </article>
@@ -169,6 +263,6 @@ function RequestAction({
   );
 }
 
-export function filterConsultationRequests(requests: ConsultationRequest[], type: ConsultationRequestType) {
-  return requests.filter((request) => request.type === type);
+function normalizeTime(time: string) {
+  return time.slice(0, 5);
 }
