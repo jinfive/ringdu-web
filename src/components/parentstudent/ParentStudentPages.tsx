@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
@@ -12,8 +12,12 @@ import {
   ApiError,
   createParentStudentInvitation,
   createStudentParentInvitation,
+  getParentChildAcademies,
+  getParentChildAttendanceRecords,
   getParentInvitations,
   getParentStudents,
+  getStudentAcademies,
+  getStudentAttendanceRecords,
   getStudentInvitations,
   getStudentParents,
   rejectParentStudentInvitation,
@@ -24,11 +28,11 @@ import {
   attendanceStatusStyles,
   attendanceYearOptions,
   getCurrentAttendanceFilter,
-  isSameAttendanceMonth,
-  mockParentAttendanceRecords,
-  mockStudentAttendanceRecords,
+  type AttendanceAcademyOptionResponse,
   type AttendanceRecordListItem,
   type AttendanceStatus,
+  type ParentChildAttendanceRecordResponse,
+  type StudentAttendanceRecordResponse,
 } from "@/types/attendance";
 import type {
   ParentStudentInvitationResponse,
@@ -218,20 +222,90 @@ function AttendanceSummaryCard({ role }: { role: FamilyRole }) {
 
 export function ParentStudentAttendancePage({ role }: { role: FamilyRole }) {
   const config = configs[role];
+  const { accessToken } = useAuth();
   const state = useParentStudentState(config);
   const defaultFilter = getCurrentAttendanceFilter();
   const [selectedYear, setSelectedYear] = useState(defaultFilter.year);
   const [selectedMonth, setSelectedMonth] = useState(defaultFilter.month);
   const [selectedAcademyId, setSelectedAcademyId] = useState("all");
   const [selectedStudentId, setSelectedStudentId] = useState("all");
-  const records = role === "PARENT" ? mockParentAttendanceRecords : mockStudentAttendanceRecords;
-  const academyOptions = getAcademyOptions(records);
-  const childOptions = role === "PARENT" ? getChildOptions(records, state.relations) : [];
-  const filteredRecords = records.filter((record) => {
-    const academyMatched = selectedAcademyId === "all" || record.academyId === selectedAcademyId;
-    const studentMatched = role !== "PARENT" || selectedStudentId === "all" || record.studentId === selectedStudentId;
-    return academyMatched && studentMatched && isSameAttendanceMonth(record.attendanceDate, selectedYear, selectedMonth);
-  });
+  const [records, setRecords] = useState<AttendanceRecordListItem[]>([]);
+  const [academyOptions, setAcademyOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [isAttendanceLoading, setIsAttendanceLoading] = useState(true);
+  const [attendanceErrorMessage, setAttendanceErrorMessage] = useState("");
+  const childOptions = useMemo(() => role === "PARENT" ? getChildOptions(state.relations) : [], [role, state.relations]);
+  const selectedAcademyFilter = selectedAcademyId === "all" ? null : Number(selectedAcademyId);
+  const selectedStudentProfileIds = useMemo(() => {
+    if (role !== "PARENT") {
+      return [];
+    }
+    if (selectedStudentId !== "all") {
+      return [Number(selectedStudentId)];
+    }
+    return childOptions.map((child) => Number(child.id));
+  }, [childOptions, role, selectedStudentId]);
+
+  const loadAttendance = useCallback(async () => {
+    if (!accessToken) {
+      return;
+    }
+    if (role === "PARENT" && state.isLoading) {
+      return;
+    }
+
+    setIsAttendanceLoading(true);
+    setAttendanceErrorMessage("");
+
+    try {
+      if (role === "STUDENT") {
+        const [academyResponses, recordResponses] = await Promise.all([
+          getStudentAcademies(accessToken),
+          getStudentAttendanceRecords(
+            { academyId: selectedAcademyFilter, year: selectedYear, month: selectedMonth },
+            accessToken,
+          ),
+        ]);
+        setAcademyOptions(toAcademyOptions(academyResponses));
+        setRecords(recordResponses.map(toStudentAttendanceItem));
+      } else {
+        if (selectedStudentProfileIds.length === 0) {
+          setAcademyOptions([]);
+          setRecords([]);
+          return;
+        }
+        const [academyResponseGroups, recordResponseGroups] = await Promise.all([
+          Promise.all(selectedStudentProfileIds.map((studentProfileId) => getParentChildAcademies(studentProfileId, accessToken))),
+          Promise.all(
+            selectedStudentProfileIds.map((studentProfileId) =>
+              getParentChildAttendanceRecords(
+                studentProfileId,
+                { academyId: selectedAcademyFilter, year: selectedYear, month: selectedMonth },
+                accessToken,
+              ),
+            ),
+          ),
+        ]);
+        setAcademyOptions(toAcademyOptions(academyResponseGroups.flat()));
+        setRecords(recordResponseGroups.flat().map(toParentAttendanceItem));
+      }
+    } catch (error) {
+      setAttendanceErrorMessage(getFamilyErrorMessage(error));
+    } finally {
+      setIsAttendanceLoading(false);
+    }
+  }, [
+    accessToken,
+    role,
+    selectedAcademyFilter,
+    selectedMonth,
+    selectedStudentProfileIds,
+    selectedYear,
+    state.isLoading,
+  ]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadAttendance);
+  }, [loadAttendance]);
 
   return (
     <FamilyShell config={config} mode="attendance">
@@ -244,16 +318,20 @@ export function ParentStudentAttendancePage({ role }: { role: FamilyRole }) {
                 {role === "PARENT" ? "자녀별, 학원별 출석 기록을 확인합니다." : "학원별 출석 기록을 확인합니다."}
               </p>
             </div>
-            <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100">
-              API 연동 예정
+            <span className="inline-flex w-fit rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">
+              조회 전용
             </span>
           </div>
-          <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
-            {role === "PARENT"
-              ? "TODO: GET /api/parent/children/{studentProfileId}/attendance-records?academyId=&year=&month= 연동 예정"
-              : "TODO: GET /api/student/attendance-records?academyId=&year=&month= 연동 예정"}
-          </p>
         </FamilyCard>
+
+        {attendanceErrorMessage ? (
+          <FamilyCard>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <AlertMessage>{attendanceErrorMessage}</AlertMessage>
+              <FamilyButton onClick={() => void loadAttendance()}>다시 시도</FamilyButton>
+            </div>
+          </FamilyCard>
+        ) : null}
 
         <FamilyAttendanceFilter
           role={role}
@@ -269,7 +347,7 @@ export function ParentStudentAttendancePage({ role }: { role: FamilyRole }) {
           onStudentChange={setSelectedStudentId}
         />
 
-        <FamilyAttendanceRecords role={role} records={filteredRecords} />
+        <FamilyAttendanceRecords role={role} records={records} isLoading={isAttendanceLoading} />
       </div>
     </FamilyShell>
   );
@@ -340,7 +418,23 @@ function FamilyAttendanceFilter({
   );
 }
 
-function FamilyAttendanceRecords({ role, records }: { role: FamilyRole; records: AttendanceRecordListItem[] }) {
+function FamilyAttendanceRecords({
+  role,
+  records,
+  isLoading,
+}: {
+  role: FamilyRole;
+  records: AttendanceRecordListItem[];
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <FamilyCard>
+        <EmptyState title="출석 기록을 불러오는 중입니다." description="선택한 조건에 맞는 출석 기록을 확인하고 있습니다." />
+      </FamilyCard>
+    );
+  }
+
   if (records.length === 0) {
     return (
       <FamilyCard>
@@ -434,23 +528,50 @@ function FamilyAttendanceStatusBadge({ status }: { status: AttendanceStatus }) {
   );
 }
 
-function getAcademyOptions(records: AttendanceRecordListItem[]) {
-  return Array.from(new Map(records.map((record) => [record.academyId, { id: record.academyId, name: record.academyName }])).values());
+function getChildOptions(relations: ParentStudentRelationResponse[]) {
+  return relations.flatMap((relation) =>
+    relation.studentProfiles.map((profile) => ({
+      id: String(profile.studentProfileId),
+      name: profile.studentName || relation.studentName,
+    })),
+  );
 }
 
-function getChildOptions(records: AttendanceRecordListItem[], relations: ParentStudentRelationResponse[]) {
-  const relationOptions = relations.map((relation) => ({
-    id: String(relation.studentUserId),
-    name: relation.studentName,
-  }));
-  const recordOptions = records
-    .filter((record) => record.studentId && record.studentName)
-    .map((record) => ({
-      id: record.studentId ?? "",
-      name: record.studentName ?? "",
-    }));
+function toAcademyOptions(academies: AttendanceAcademyOptionResponse[]) {
+  return Array.from(
+    new Map(
+      academies.map((academy) => [
+        String(academy.academyId),
+        { id: String(academy.academyId), name: academy.academyName },
+      ]),
+    ).values(),
+  );
+}
 
-  return Array.from(new Map([...relationOptions, ...recordOptions].map((child) => [child.id, child])).values());
+function toStudentAttendanceItem(record: StudentAttendanceRecordResponse): AttendanceRecordListItem {
+  return {
+    id: `${record.attendanceDate}-${record.academyId}-${record.classId}-${record.status}`,
+    attendanceDate: record.attendanceDate,
+    academyId: String(record.academyId),
+    academyName: record.academyName,
+    className: record.className,
+    status: record.status,
+    memo: record.memo ?? "",
+  };
+}
+
+function toParentAttendanceItem(record: ParentChildAttendanceRecordResponse): AttendanceRecordListItem {
+  return {
+    id: `${record.attendanceDate}-${record.studentProfileId}-${record.academyId}-${record.classId}-${record.status}`,
+    attendanceDate: record.attendanceDate,
+    studentId: String(record.studentProfileId),
+    studentName: record.studentName,
+    academyId: String(record.academyId),
+    academyName: record.academyName,
+    className: record.className,
+    status: record.status,
+    memo: record.memo ?? "",
+  };
 }
 
 export function ParentStudentInvitationsPage({ role }: { role: FamilyRole }) {
