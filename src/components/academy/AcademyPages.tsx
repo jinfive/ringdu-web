@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   addAcademyClassStudent,
   ApiError,
   createTeacherInvitation,
   getAcademyStudentAttendanceRecords,
+  getAcademyConsultationRequests,
   getAcademyClasses,
   getAcademyStudent,
   getAcademyStudentClasses,
@@ -19,7 +20,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ConsultationAvailabilitySettings } from "@/components/consultation/ConsultationAvailabilitySettings";
-import { ConsultationRequestPanel } from "@/components/consultation/ConsultationRequestPanel";
+import { ConsultationRequestPanel, ConsultationStatusBadge } from "@/components/consultation/ConsultationRequestPanel";
 import {
   attendanceStatusLabels,
   attendanceStatusStyles,
@@ -30,6 +31,7 @@ import {
   type AcademyStudentAttendanceRecordResponse,
   type AttendanceStatus,
 } from "@/types/attendance";
+import type { ConsultationRequestResponse } from "@/types/consultation";
 import type {
   AcademyStudentResponse,
   AcademyTeacherResponse,
@@ -501,7 +503,7 @@ function StudentDetailTabContent({
   }
 
   if (activeTab === "상담 메모") {
-    return <StudentConsultationMemoTab student={student} />;
+    return <StudentConsultationMemoTab student={student} accessToken={accessToken} />;
   }
 
   if (activeTab === "청구/수납") {
@@ -847,7 +849,46 @@ function StudentAttendanceStatusBadge({ status }: { status: AttendanceStatus }) 
   );
 }
 
-function StudentConsultationMemoTab({ student }: { student: AcademyStudentResponse }) {
+function StudentConsultationMemoTab({
+  student,
+  accessToken,
+}: {
+  student: AcademyStudentResponse;
+  accessToken: string | null;
+}) {
+  const [requests, setRequests] = useState<ConsultationRequestResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const loadRequests = useCallback(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage("");
+    getAcademyConsultationRequests(accessToken, {
+      type: "ENROLLED_STUDENT",
+      studentProfileId: student.id,
+    })
+      .then(setRequests)
+      .catch((error) => setErrorMessage(getErrorMessage(error)))
+      .finally(() => setIsLoading(false));
+  }, [accessToken, student.id]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadRequests);
+  }, [loadRequests]);
+
+  const groupedRequests = useMemo(
+    () => ({
+      requested: requests.filter((request) => request.status === "REQUESTED"),
+      scheduled: requests.filter((request) => request.status === "APPROVED"),
+      completed: requests.filter((request) => request.status === "COMPLETED"),
+    }),
+    [requests],
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -866,10 +907,37 @@ function StudentConsultationMemoTab({ student }: { student: AcademyStudentRespon
         </button>
       </div>
 
+      {errorMessage ? (
+        <div className="rounded-3xl border border-red-100 bg-red-50 px-5 py-4">
+          <p className="text-sm font-semibold text-red-600">{errorMessage}</p>
+          <button
+            type="button"
+            onClick={loadRequests}
+            className="mt-3 inline-flex h-10 items-center justify-center rounded-2xl bg-white px-4 text-sm font-bold text-red-600 ring-1 ring-red-100"
+          >
+            다시 시도
+          </button>
+        </div>
+      ) : null}
+
+      {isLoading ? <p className="text-sm font-semibold text-slate-600">상담 요청을 불러오고 있습니다.</p> : null}
+
       <div className="grid gap-3 lg:grid-cols-3">
-        <ConsultationMemoColumn title="상담 요청" emptyText={`${student.name} 학생의 대기 중인 상담 요청이 없습니다.`} />
-        <ConsultationMemoColumn title="상담 예정" emptyText="승인된 상담 일정이 없습니다." />
-        <ConsultationMemoColumn title="상담 완료 기록" emptyText="완료된 상담 기록이 없습니다." />
+        <ConsultationMemoColumn
+          title="상담 요청"
+          requests={groupedRequests.requested}
+          emptyText={`${student.name} 학생의 대기 중인 상담 요청이 없습니다.`}
+        />
+        <ConsultationMemoColumn
+          title="상담 예정"
+          requests={groupedRequests.scheduled}
+          emptyText="승인된 상담 일정이 없습니다."
+        />
+        <ConsultationMemoColumn
+          title="상담 완료 기록"
+          requests={groupedRequests.completed}
+          emptyText="완료된 상담 기록이 없습니다."
+        />
       </div>
     </div>
   );
@@ -877,18 +945,31 @@ function StudentConsultationMemoTab({ student }: { student: AcademyStudentRespon
 
 function ConsultationMemoColumn({
   title,
+  requests,
   emptyText,
 }: {
   title: string;
+  requests: ConsultationRequestResponse[];
   emptyText: string;
 }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
       <h4 className="font-bold text-slate-950">{title}</h4>
-      <p className="mt-3 text-sm leading-6 text-slate-600">{emptyText}</p>
-      <p className="mt-3 rounded-2xl border border-dashed border-slate-300 bg-white/80 px-4 py-4 text-sm font-semibold text-slate-500">
-        상담 요청이 승인되면 이곳에서 상담 이력을 관리할 수 있습니다.
-      </p>
+      {requests.length === 0 ? <p className="mt-3 text-sm leading-6 text-slate-600">{emptyText}</p> : null}
+      <div className="mt-3 grid gap-3">
+        {requests.map((request) => (
+          <article key={request.consultationRequestId} className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-bold text-slate-950">{request.topicLabel}</p>
+              <ConsultationStatusBadge status={request.status} />
+            </div>
+            <p className="mt-2 text-sm font-semibold text-slate-600">
+              {request.requestedDate} {normalizeTime(request.requestedStartTime)} - {normalizeTime(request.requestedEndTime)}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-700">{request.content || "요청 내용이 없습니다."}</p>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -1838,6 +1919,10 @@ function defaultInvitationMessage(academyName: string) {
 
 function fallbackInvitationMessage() {
   return "Ringdu에서 선생님 초대장을 보냈습니다.\n초대를 수락하면 해당 학원의 선생님으로 연결됩니다.";
+}
+
+function normalizeTime(time: string) {
+  return time.slice(0, 5);
 }
 
 function formatDate(value: string | null) {

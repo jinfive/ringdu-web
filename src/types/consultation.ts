@@ -62,6 +62,7 @@ export type ConsultationRequestResponse = {
   academyName: string;
   studentProfileId: number;
   studentName: string;
+  parentPhone?: string | null;
   teacherUserId?: number | null;
   teacherName?: string | null;
   requestedDate: string;

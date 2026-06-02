@@ -2,9 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ApiError, getAcademyDashboard, getMyAcademy } from "@/lib/api";
+import { ApiError, getAcademyConsultationRequests, getAcademyDashboard, getMyAcademy } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
 import type { AcademyDashboardResponse, AcademyResponse } from "@/types/auth";
+import {
+  consultationStatusLabels,
+  consultationStatusStyles,
+  type ConsultationRequestResponse,
+  type ConsultationStatus,
+} from "@/types/consultation";
 import { AcademyCard, AcademyLinkButton, AcademyShell, StatusBadge } from "./AcademyShell";
 
 const registrationActions = [
@@ -40,8 +46,10 @@ export function AcademyDashboard() {
   const isPendingApproval = user?.status === "PENDING_APPROVAL";
   const [academy, setAcademy] = useState<AcademyResponse | null>(null);
   const [dashboard, setDashboard] = useState<AcademyDashboardResponse | null>(null);
+  const [todayConsultations, setTodayConsultations] = useState<ConsultationRequestResponse[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const todayKey = toDateKey(new Date());
 
   const today = new Intl.DateTimeFormat("ko-KR", {
     dateStyle: "full",
@@ -54,10 +62,19 @@ export function AcademyDashboard() {
 
     setIsLoading(true);
     setErrorMessage("");
-    void Promise.all([getMyAcademy(accessToken), getAcademyDashboard(accessToken)])
-      .then(([academyResponse, dashboardResponse]) => {
+    void Promise.all([
+      getMyAcademy(accessToken),
+      getAcademyDashboard(accessToken),
+      getAcademyConsultationRequests(accessToken, {
+        from: todayKey,
+        to: todayKey,
+        type: "ENROLLED_STUDENT",
+      }),
+    ])
+      .then(([academyResponse, dashboardResponse, consultationResponse]) => {
         setAcademy(academyResponse);
         setDashboard(dashboardResponse);
+        setTodayConsultations(filterTodayConsultations(consultationResponse));
       })
       .catch((error) => {
         setErrorMessage(getAcademyErrorMessage(error, "학원 대시보드 정보를 불러오지 못했습니다."));
@@ -73,11 +90,20 @@ export function AcademyDashboard() {
     }
 
     let isMounted = true;
-    void Promise.all([getMyAcademy(accessToken), getAcademyDashboard(accessToken)])
-      .then(([academyResponse, dashboardResponse]) => {
+    void Promise.all([
+      getMyAcademy(accessToken),
+      getAcademyDashboard(accessToken),
+      getAcademyConsultationRequests(accessToken, {
+        from: todayKey,
+        to: todayKey,
+        type: "ENROLLED_STUDENT",
+      }),
+    ])
+      .then(([academyResponse, dashboardResponse, consultationResponse]) => {
         if (isMounted) {
           setAcademy(academyResponse);
           setDashboard(dashboardResponse);
+          setTodayConsultations(filterTodayConsultations(consultationResponse));
         }
       })
       .catch((error) => {
@@ -94,7 +120,7 @@ export function AcademyDashboard() {
     return () => {
       isMounted = false;
     };
-  }, [accessToken, isPendingApproval]);
+  }, [accessToken, isPendingApproval, todayKey]);
 
   const summaryItems = useMemo(() => {
     const data = dashboard ?? {
@@ -162,6 +188,40 @@ export function AcademyDashboard() {
             </AcademyCard>
           ))}
         </section>
+
+        <AcademyCard>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">오늘 상담 예약</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                오늘 예정된 재원생 상담 요청과 승인 일정을 확인합니다.
+              </p>
+            </div>
+            <StatusBadge>{todayConsultations.length}건</StatusBadge>
+          </div>
+          {todayConsultations.length === 0 ? (
+            <p className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-4 py-6 text-center text-sm font-semibold text-slate-500">
+              오늘 예정된 상담이 없습니다.
+            </p>
+          ) : (
+            <div className="mt-5 grid gap-3">
+              {todayConsultations.map((consultation) => (
+                <Link
+                  key={consultation.consultationRequestId}
+                  href="/academy/students"
+                  className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 text-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 sm:grid-cols-[0.8fr_1fr_1fr_auto] sm:items-center"
+                >
+                  <span className="font-black text-slate-950">
+                    {normalizeTime(consultation.requestedStartTime)} - {normalizeTime(consultation.requestedEndTime)}
+                  </span>
+                  <span className="font-bold text-slate-900">{consultation.studentName}</span>
+                  <span className="font-semibold text-slate-600">{consultation.teacherName ?? "담당 선생님 미지정"}</span>
+                  <ConsultationStatusBadge status={consultation.status} />
+                </Link>
+              ))}
+            </div>
+          )}
+        </AcademyCard>
 
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <AcademyCard>
@@ -244,4 +304,29 @@ function getAcademyErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+function ConsultationStatusBadge({ status }: { status: ConsultationStatus }) {
+  return (
+    <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${consultationStatusStyles[status]}`}>
+      {consultationStatusLabels[status]}
+    </span>
+  );
+}
+
+function filterTodayConsultations(requests: ConsultationRequestResponse[]) {
+  return requests
+    .filter((request) => request.status === "REQUESTED" || request.status === "APPROVED")
+    .sort((a, b) => normalizeTime(a.requestedStartTime).localeCompare(normalizeTime(b.requestedStartTime)));
+}
+
+function toDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeTime(time: string) {
+  return time.slice(0, 5);
 }
