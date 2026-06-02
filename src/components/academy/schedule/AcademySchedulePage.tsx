@@ -8,9 +8,9 @@ import {
   attendanceStatusLabels,
   attendanceStatusStyles,
   countAttendanceStatuses,
-  mockAttendanceRecords,
+  type AcademyAttendanceSessionSummaryResponse,
+  type AttendanceSessionDetailResponse,
   type AttendanceStatus,
-  type AttendanceRecord,
 } from "@/types/attendance";
 import {
   addAcademyClassStudent,
@@ -18,8 +18,10 @@ import {
   createAcademyClass,
   createAcademyClassroom,
   deleteAcademyClassroom,
+  getAcademyAttendanceSession,
   removeAcademyClassStudent,
   getAcademyClass,
+  getAcademyClassAttendanceSessions,
   getAcademyClasses,
   getAcademyClassrooms,
   getAcademyTeachers,
@@ -675,7 +677,9 @@ export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
               />
             ) : null}
 
-            {activeTab === "출석 관리" ? <AcademyClassAttendancePanel scheduleClass={scheduleClass} /> : null}
+            {activeTab === "출석 관리" ? (
+              <AcademyClassAttendancePanel scheduleClass={scheduleClass} accessToken={accessToken} />
+            ) : null}
 
             {activeTab === "숙제 관리 준비 중" ? (
               <AcademyCard>
@@ -690,9 +694,67 @@ export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
   );
 }
 
-function AcademyClassAttendancePanel({ scheduleClass }: { scheduleClass: AcademyClassDetailResponse }) {
-  const records = getMockClassAttendanceRecords(scheduleClass);
-  const counts = countAttendanceStatuses(records);
+function AcademyClassAttendancePanel({
+  scheduleClass,
+  accessToken,
+}: {
+  scheduleClass: AcademyClassDetailResponse;
+  accessToken: string | null;
+}) {
+  const [sessions, setSessions] = useState<AcademyAttendanceSessionSummaryResponse[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
+  const [sessionDetail, setSessionDetail] = useState<AttendanceSessionDetailResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const loadSessions = useCallback(() => {
+    if (!accessToken) return;
+
+    setIsLoading(true);
+    setErrorMessage("");
+    void getAcademyClassAttendanceSessions(scheduleClass.classId, accessToken)
+      .then((data) => {
+        setSessions(data);
+        setSelectedSessionId((current) => current ?? data[0]?.attendanceSessionId ?? null);
+        if (data.length === 0) {
+          setSessionDetail(null);
+        }
+      })
+      .catch((error) => {
+        setErrorMessage(getScheduleErrorMessage(error));
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [accessToken, scheduleClass.classId]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadSessions);
+  }, [loadSessions]);
+
+  useEffect(() => {
+    if (!accessToken || selectedSessionId === null) {
+      return;
+    }
+
+    void Promise.resolve().then(() => {
+      setIsDetailLoading(true);
+      setErrorMessage("");
+      void getAcademyAttendanceSession(selectedSessionId, accessToken)
+        .then((data) => {
+          setSessionDetail(data);
+        })
+        .catch((error) => {
+          setErrorMessage(getScheduleErrorMessage(error));
+        })
+        .finally(() => {
+          setIsDetailLoading(false);
+        });
+    });
+  }, [accessToken, selectedSessionId]);
+
+  const counts = sessionDetail ? countAttendanceStatuses(sessionDetail.records) : { PRESENT: 0, LATE: 0, ABSENT: 0 };
 
   return (
     <AcademyCard>
@@ -706,18 +768,48 @@ function AcademyClassAttendancePanel({ scheduleClass }: { scheduleClass: Academy
         </span>
       </div>
 
+      {errorMessage ? <ErrorBanner message={errorMessage} onRetry={loadSessions} /> : null}
+      {isLoading ? <p className="mt-5 text-sm font-semibold text-slate-600">출석 기록을 불러오고 있습니다.</p> : null}
+      {!isLoading && sessions.length === 0 ? (
+        <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50/80 px-6 py-10 text-center">
+          <h3 className="text-lg font-bold text-slate-950">아직 출석 기록이 없습니다.</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">담당 선생님이 출석을 처리하면 이곳에 표시됩니다.</p>
+        </div>
+      ) : null}
+
+      {sessions.length > 0 ? (
+        <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+          {sessions.map((session) => (
+            <button
+              key={session.attendanceSessionId}
+              type="button"
+              onClick={() => setSelectedSessionId(session.attendanceSessionId)}
+              className={`h-10 shrink-0 rounded-2xl px-4 text-sm font-bold transition ${
+                selectedSessionId === session.attendanceSessionId
+                  ? "bg-blue-700 text-white shadow-lg shadow-blue-100"
+                  : "border border-slate-200 bg-white text-slate-700 hover:bg-blue-50"
+              }`}
+            >
+              {session.attendanceDate}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {isDetailLoading ? <p className="mt-5 text-sm font-semibold text-slate-600">출석 상세를 불러오고 있습니다.</p> : null}
+      {sessionDetail ? (
       <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-bold text-slate-950">2026-06-01</p>
+            <p className="text-sm font-bold text-slate-950">{sessionDetail.attendanceDate}</p>
             <p className="mt-1 text-sm text-slate-600">
               {scheduleClass.name} · {scheduleClass.dayLabel} {scheduleClass.startTime} - {scheduleClass.endTime}
             </p>
           </div>
-          <p className="text-sm font-semibold text-slate-500">mock 데이터</p>
+          <p className="text-sm font-semibold text-slate-500">{sessionDetail.status === "COMPLETED" ? "처리 완료" : "출석 처리 대기"}</p>
         </div>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-4">
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
           {(Object.keys(attendanceStatusLabels) as AttendanceStatus[]).map((status) => (
             <div key={status} className="rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
               <p className="text-xs font-bold text-slate-500">{attendanceStatusLabels[status]}</p>
@@ -727,8 +819,8 @@ function AcademyClassAttendancePanel({ scheduleClass }: { scheduleClass: Academy
         </div>
 
         <div className="mt-4 grid gap-3">
-          {records.map((record) => (
-            <div key={record.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+          {sessionDetail.records.map((record) => (
+            <div key={record.recordId} className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-bold text-slate-950">{record.studentName}</p>
@@ -740,6 +832,7 @@ function AcademyClassAttendancePanel({ scheduleClass }: { scheduleClass: Academy
           ))}
         </div>
       </div>
+      ) : null}
     </AcademyCard>
   );
 }
@@ -750,26 +843,6 @@ function ScheduleAttendanceStatusBadge({ status }: { status: AttendanceStatus })
       {attendanceStatusLabels[status]}
     </span>
   );
-}
-
-function getMockClassAttendanceRecords(scheduleClass: AcademyClassDetailResponse): AttendanceRecord[] {
-  const sampleRecords = mockAttendanceRecords.filter((record) => record.classId === "sample-class");
-
-  if (scheduleClass.students.length === 0) {
-    return sampleRecords;
-  }
-
-  const statuses = Object.keys(attendanceStatusLabels) as AttendanceStatus[];
-  return scheduleClass.students.slice(0, 5).map((student, index) => ({
-    id: `class-${scheduleClass.classId}-attendance-${student.studentProfileId}`,
-    classId: String(scheduleClass.classId),
-    className: scheduleClass.name,
-    date: "2026-06-01",
-    studentId: String(student.studentProfileId),
-    studentName: student.name,
-    status: statuses[index % statuses.length],
-    memo: index === 1 ? "10분 지각" : "",
-  }));
 }
 
 function ClassDetailTabs({

@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { HomeAuthActions } from "@/components/auth/HomeAuthActions";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -21,7 +24,9 @@ const academyMenu = [
 
 export function AcademyShell({ title, description, children, actions }: AcademyShellProps) {
   const { user, loadMe, logout, isLoading } = useAuth();
+  const pathname = usePathname();
   const isPendingApproval = user?.role === "ACADEMY" && user.status === "PENDING_APPROVAL";
+  const isActiveMenu = (href: string) => (href === "/academy" ? pathname === href : pathname.startsWith(href));
 
   if (isPendingApproval) {
     return (
@@ -96,7 +101,11 @@ export function AcademyShell({ title, description, children, actions }: AcademyS
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="block rounded-2xl px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
+                  className={`block rounded-2xl px-3 py-3 text-sm font-semibold transition ${
+                    isActiveMenu(item.href)
+                      ? "bg-blue-700 text-white shadow-lg shadow-blue-100"
+                      : "text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                  }`}
                 >
                   {item.label}
                 </Link>
@@ -120,12 +129,16 @@ export function AcademyShell({ title, description, children, actions }: AcademyS
                   <HomeAuthActions variant="nav" />
                 </div>
               </div>
-              <nav className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+              <nav className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:hidden">
                 {academyMenu.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="shrink-0 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                    className={`min-h-10 rounded-2xl border px-3 py-2 text-center text-sm font-semibold transition ${
+                      isActiveMenu(item.href)
+                        ? "border-blue-700 bg-blue-700 text-white shadow-lg shadow-blue-100"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                    }`}
                   >
                     {item.label}
                   </Link>
@@ -140,7 +153,9 @@ export function AcademyShell({ title, description, children, actions }: AcademyS
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="rounded-2xl px-2 py-2 text-center text-xs font-semibold text-slate-700"
+                  className={`rounded-2xl px-2 py-2 text-center text-xs font-semibold ${
+                    isActiveMenu(item.href) ? "bg-blue-700 text-white" : "text-slate-700"
+                  }`}
                 >
                   {item.label}
                 </Link>

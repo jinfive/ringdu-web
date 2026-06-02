@@ -29,6 +29,13 @@ import type {
   AcademyStudentInvitationResponse,
 } from "@/types/auth";
 import type {
+  AcademyAttendanceSessionSummaryResponse,
+  AcademyStudentAttendanceRecordResponse,
+  AttendanceRecordSaveRequest,
+  AttendanceSessionDetailResponse,
+  TeacherTodayClassResponse,
+} from "@/types/attendance";
+import type {
   AcademyClassDetailResponse,
   AcademyClassListQuery,
   AcademyClassRequest,
@@ -517,6 +524,94 @@ export async function getAcademyClass(
       Authorization: `Bearer ${accessToken}`,
     },
   });
+}
+
+export async function getTeacherTodayClasses(accessToken: string): Promise<TeacherTodayClassResponse[]> {
+  return request<TeacherTodayClassResponse[]>("/api/teacher/today-classes", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createTeacherAttendanceSession(
+  classId: number,
+  attendanceDate: string,
+  accessToken: string,
+): Promise<AttendanceSessionDetailResponse> {
+  return request<AttendanceSessionDetailResponse>(`/api/teacher/classes/${classId}/attendance-sessions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ attendanceDate }),
+  });
+}
+
+export async function getTeacherAttendanceSession(
+  sessionId: number,
+  accessToken: string,
+): Promise<AttendanceSessionDetailResponse> {
+  return request<AttendanceSessionDetailResponse>(`/api/teacher/attendance-sessions/${sessionId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function saveTeacherAttendanceRecords(
+  sessionId: number,
+  payload: AttendanceRecordSaveRequest,
+  accessToken: string,
+): Promise<AttendanceSessionDetailResponse> {
+  return request<AttendanceSessionDetailResponse>(`/api/teacher/attendance-sessions/${sessionId}/records`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAcademyClassAttendanceSessions(
+  classId: number,
+  accessToken: string,
+): Promise<AcademyAttendanceSessionSummaryResponse[]> {
+  return request<AcademyAttendanceSessionSummaryResponse[]>(`/api/academies/me/classes/${classId}/attendance-sessions`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getAcademyAttendanceSession(
+  sessionId: number,
+  accessToken: string,
+): Promise<AttendanceSessionDetailResponse> {
+  return request<AttendanceSessionDetailResponse>(`/api/academies/me/attendance-sessions/${sessionId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getAcademyStudentAttendanceRecords(
+  studentProfileId: number,
+  accessToken: string,
+): Promise<AcademyStudentAttendanceRecordResponse[]> {
+  return request<AcademyStudentAttendanceRecordResponse[]>(
+    `/api/academies/me/students/${studentProfileId}/attendance-records`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
 }
 
 export async function getAcademyStudentClasses(
