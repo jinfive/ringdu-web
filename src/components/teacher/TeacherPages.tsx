@@ -11,6 +11,7 @@ import {
   createTeacherConsultationMemo,
   getMyTeacherInvitations,
   getTeacherConsultationMemos,
+  getTeacherConsultationRequests,
   getTeacherConsultationStudents,
   getTeacherTodayClasses,
   rejectTeacherInvitation,
@@ -32,6 +33,7 @@ import {
   consultationMemoWriterRoleStyles,
   type ConsultationMemo,
   type ConsultationMemoCreateRequest,
+  type ConsultationRequestResponse,
   type TeacherConsultationStudentResponse,
 } from "@/types/consultation";
 
@@ -189,10 +191,11 @@ export function TeacherDashboardPage() {
 }
 
 export function TeacherConsultationsPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const initialMonth = getCurrentMonthFilter();
   const [students, setStudents] = useState<TeacherConsultationStudentResponse[]>([]);
   const [memos, setMemos] = useState<ConsultationMemo[]>([]);
+  const [requests, setRequests] = useState<ConsultationRequestResponse[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState("ALL");
   const [selectedYear, setSelectedYear] = useState(initialMonth.year);
   const [selectedMonth, setSelectedMonth] = useState(initialMonth.month);
@@ -214,6 +217,7 @@ export function TeacherConsultationsPage() {
       ]);
       setStudents(studentResponses);
       setMemos(memoResponses);
+      setRequests(await getTeacherConsultationRequests(accessToken, studentId));
     } catch (error) {
       setErrorMessage(getTeacherErrorMessage(error));
     } finally {
@@ -311,26 +315,33 @@ export function TeacherConsultationsPage() {
 
           {filteredMemos.length > 0 ? (
             <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200">
-              <div className="hidden grid-cols-[120px_140px_1fr_120px_1.4fr] gap-3 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500 lg:grid">
+              <div className="hidden grid-cols-[140px_120px_120px_1fr_120px_1.2fr_1.1fr] gap-3 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500 lg:grid">
+                <span>학원명</span>
                 <span>날짜</span>
                 <span>학생명</span>
                 <span>제목</span>
                 <span>작성자</span>
                 <span>메모 요약</span>
+                <span>다음 조치</span>
               </div>
               <div className="divide-y divide-slate-200">
                 {filteredMemos.map((memo) => (
                   <button
                     key={memo.consultationMemoId}
                     type="button"
-                    onClick={() => (memo.writerRole === "TEACHER" ? setEditingMemo(memo) : undefined)}
-                    className="grid w-full gap-2 px-4 py-4 text-left text-sm transition hover:bg-blue-50/60 lg:grid-cols-[120px_140px_1fr_120px_1.4fr] lg:items-center lg:gap-3"
+                    onClick={() => (memo.writerUserId === user?.userId ? setEditingMemo(memo) : undefined)}
+                    className="grid w-full gap-2 px-4 py-4 text-left text-sm transition hover:bg-blue-50/60 lg:grid-cols-[140px_120px_120px_1fr_120px_1.2fr_1.1fr] lg:items-center lg:gap-3"
                   >
+                    <span className="font-semibold text-slate-700">{memo.academyName}</span>
                     <span className="font-bold text-slate-900">{memo.consultationDate}</span>
                     <span className="font-semibold text-slate-700">{memo.studentName}</span>
                     <span className="font-bold text-slate-950">{memo.title}</span>
-                    <MemoWriterBadge role={memo.writerRole} />
+                    <span className="grid gap-1">
+                      <MemoWriterBadge role={memo.writerRole} />
+                      <span className="text-xs font-semibold text-slate-500">{memo.writerName}</span>
+                    </span>
                     <span className="line-clamp-2 text-slate-600">{memo.content}</span>
+                    <span className="line-clamp-2 text-slate-600">{memo.nextAction || "-"}</span>
                   </button>
                 ))}
               </div>
@@ -342,6 +353,7 @@ export function TeacherConsultationsPage() {
       {isCreateOpen || editingMemo ? (
         <TeacherConsultationMemoModal
           students={students}
+          requests={requests}
           memo={editingMemo}
           defaultStudentId={selectedStudentId === "ALL" ? students[0]?.studentProfileId ?? null : Number(selectedStudentId)}
           onClose={closeModal}
@@ -799,18 +811,21 @@ export function TeacherAttendanceDetailPage({ classId }: { classId: string }) {
 
 function TeacherConsultationMemoModal({
   students,
+  requests,
   memo,
   defaultStudentId,
   onClose,
   onSave,
 }: {
   students: TeacherConsultationStudentResponse[];
+  requests: ConsultationRequestResponse[];
   memo: ConsultationMemo | null;
   defaultStudentId: number | null;
   onClose: () => void;
   onSave: (payload: ConsultationMemoCreateRequest, memoId?: number) => Promise<void>;
 }) {
   const [studentProfileId, setStudentProfileId] = useState(String(memo?.studentProfileId ?? defaultStudentId ?? ""));
+  const [consultationRequestId, setConsultationRequestId] = useState(String(memo?.consultationRequestId ?? ""));
   const [consultationDate, setConsultationDate] = useState(memo?.consultationDate ?? getTodayDateInput());
   const [title, setTitle] = useState(memo?.title ?? "");
   const [content, setContent] = useState(memo?.content ?? "");
@@ -818,6 +833,8 @@ function TeacherConsultationMemoModal({
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const canEditStudent = !memo;
+  const selectedStudentId = studentProfileId ? Number(studentProfileId) : null;
+  const requestOptions = requests.filter((request) => !selectedStudentId || request.studentProfileId === selectedStudentId);
 
   const handleSubmit = async () => {
     if (!studentProfileId || !title.trim() || !content.trim()) {
@@ -831,7 +848,7 @@ function TeacherConsultationMemoModal({
       await onSave(
         {
           studentProfileId: Number(studentProfileId),
-          consultationRequestId: memo?.consultationRequestId ?? null,
+          consultationRequestId: consultationRequestId ? Number(consultationRequestId) : null,
           title: title.trim(),
           content: content.trim(),
           nextAction: nextAction.trim() || null,
@@ -866,16 +883,32 @@ function TeacherConsultationMemoModal({
         <div className="space-y-4 px-5 py-5">
           {errorMessage ? <AlertMessage tone="error">{errorMessage}</AlertMessage> : null}
           <div className="grid gap-4 sm:grid-cols-2">
-            <TeacherSelect label="학생" value={studentProfileId} onChange={setStudentProfileId} disabled={!canEditStudent}>
+            <TeacherSelect
+              label="학생"
+              value={studentProfileId}
+              onChange={(value) => {
+                setStudentProfileId(value);
+                setConsultationRequestId("");
+              }}
+              disabled={!canEditStudent}
+            >
               <option value="">학생 선택</option>
               {students.map((student) => (
                 <option key={student.studentProfileId} value={student.studentProfileId}>
-                  {student.studentName}
+                  {student.academyName} · {student.studentName}
                 </option>
               ))}
             </TeacherSelect>
             <TeacherInput label="상담일" type="date" value={consultationDate} onChange={setConsultationDate} />
           </div>
+          <TeacherSelect label="상담 요청 연결" value={consultationRequestId} onChange={setConsultationRequestId} disabled={!!memo}>
+            <option value="">연결 안 함</option>
+            {requestOptions.map((request) => (
+              <option key={request.consultationRequestId} value={request.consultationRequestId}>
+                {request.requestedDate} {formatTime(request.requestedStartTime)} · {request.studentName} · {request.statusLabel}
+              </option>
+            ))}
+          </TeacherSelect>
           <TeacherInput label="제목" value={title} onChange={setTitle} placeholder="학습 상담" />
           <TeacherTextarea label="상담 내용" value={content} onChange={setContent} rows={6} placeholder="상담에서 확인한 내용을 입력합니다." />
           <TeacherTextarea label="다음 조치" value={nextAction} onChange={setNextAction} rows={4} placeholder="다음 수업 또는 후속 상담에서 확인할 내용을 입력합니다." />

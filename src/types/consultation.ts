@@ -22,9 +22,11 @@ export type ConsultationMemoWriterRole = "ACADEMY" | "TEACHER";
 export type ConsultationMemo = {
   consultationMemoId: number;
   academyId: number;
+  academyName: string;
   studentProfileId: number;
   studentName: string;
   consultationRequestId?: number | null;
+  writerUserId: number;
   writerRole: ConsultationMemoWriterRole;
   writerName: string;
   title: string;
@@ -55,6 +57,7 @@ export type TeacherConsultationStudentResponse = {
   studentProfileId: number;
   studentName: string;
   academyId: number;
+  academyName: string;
 };
 
 export type ConsultationAvailabilityRequest = {

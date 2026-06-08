@@ -929,6 +929,14 @@ function StudentConsultationMemoTab({
     }),
     [memos, selectedMonth, selectedYear],
   );
+  const memosByRequestId = useMemo(() => {
+    const grouped = new Map<number, ConsultationMemo[]>();
+    filteredMemos.forEach((memo) => {
+      if (!memo.consultationRequestId) return;
+      grouped.set(memo.consultationRequestId, [...(grouped.get(memo.consultationRequestId) ?? []), memo]);
+    });
+    return grouped;
+  }, [filteredMemos]);
 
   const processRequest = async (request: ConsultationRequestResponse, action: "approve" | "reject" | "complete") => {
     if (!accessToken) return;
@@ -1034,6 +1042,40 @@ function StudentConsultationMemoTab({
             <StatusBadge>{sortedRequests.length}건</StatusBadge>
           </div>
           <ConsultationTimeline requests={sortedRequests} onSelect={setSelectedRequest} />
+          <div className="grid gap-3">
+            {sortedRequests.map((request) => {
+              const linkedMemos = memosByRequestId.get(request.consultationRequestId) ?? [];
+              if (linkedMemos.length === 0) return null;
+
+              return (
+                <div key={`linked-${request.consultationRequestId}`} className="rounded-3xl border border-blue-100 bg-blue-50/50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-bold text-slate-950">
+                      {request.requestedDate} {request.topicLabel} 연결 메모
+                    </p>
+                    <StatusBadge>{linkedMemos.length}건</StatusBadge>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {linkedMemos.map((memo) => (
+                      <button
+                        key={memo.consultationMemoId}
+                        type="button"
+                        onClick={() => setSelectedMemo(memo)}
+                        className="rounded-2xl border border-white bg-white px-4 py-3 text-left shadow-sm transition hover:border-blue-200"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <ConsultationMemoWriterBadge role={memo.writerRole} />
+                          <span className="text-xs font-bold text-slate-500">{memo.writerName}</span>
+                        </div>
+                        <p className="mt-2 font-bold text-slate-950">{memo.title}</p>
+                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">{memo.content}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       ) : null}
 

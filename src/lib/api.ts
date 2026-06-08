@@ -1004,6 +1004,22 @@ export async function getTeacherConsultationMemos(
   });
 }
 
+export async function getTeacherConsultationRequests(
+  accessToken: string,
+  studentProfileId?: number | null,
+): Promise<ConsultationRequestResponse[]> {
+  const params = new URLSearchParams();
+  if (studentProfileId) params.set("studentProfileId", String(studentProfileId));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+
+  return request<ConsultationRequestResponse[]>(`/api/teacher/consultation-memos/requests${suffix}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 export async function createTeacherConsultationMemo(
   payload: ConsultationMemoCreateRequest,
   accessToken: string,
