@@ -1,12 +1,21 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
+import {
+  ApiError,
+  createAcademyConsultationAvailability,
+  deleteAcademyConsultationAvailability,
+  getAcademyConsultationAvailability,
+  updateAcademyConsultationAvailability,
+} from "@/lib/api";
 import {
   consultationAvailabilityDays,
+  consultationAvailabilityTypeLabels,
   consultationAvailabilityTypes,
-  mockConsultationAvailabilitySlots,
   type ConsultationAvailabilityDay,
-  type ConsultationAvailabilitySlot,
+  type ConsultationAvailabilityRequest,
+  type ConsultationAvailabilityResponse,
   type ConsultationAvailabilityType,
 } from "@/types/consultation";
 
@@ -14,62 +23,126 @@ type AvailabilityForm = {
   dayOfWeek: ConsultationAvailabilityDay;
   startTime: string;
   endTime: string;
-  type: ConsultationAvailabilityType;
+  consultationType: ConsultationAvailabilityType;
 };
 
 const initialForm: AvailabilityForm = {
   dayOfWeek: "MONDAY",
   startTime: "14:00",
   endTime: "14:30",
-  type: "전체",
+  consultationType: "ALL",
 };
 
 export function ConsultationAvailabilitySettings() {
-  const [slots, setSlots] = useState<ConsultationAvailabilitySlot[]>(mockConsultationAvailabilitySlots);
+  const { accessToken } = useAuth();
+  const [slots, setSlots] = useState<ConsultationAvailabilityResponse[]>([]);
   const [selectedDay, setSelectedDay] = useState<ConsultationAvailabilityDay>("MONDAY");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingSlot, setEditingSlot] = useState<ConsultationAvailabilityResponse | null>(null);
   const [form, setForm] = useState<AvailabilityForm>(initialForm);
   const [errorMessage, setErrorMessage] = useState("");
+  const [loadErrorMessage, setLoadErrorMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const loadAvailability = useCallback(async () => {
+    if (!accessToken) {
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadErrorMessage("");
+    try {
+      const response = await getAcademyConsultationAvailability(accessToken);
+      setSlots(response);
+    } catch (error) {
+      setLoadErrorMessage(error instanceof ApiError ? error.message : "상담 가능 시간을 불러오지 못했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => loadAvailability());
+  }, [loadAvailability]);
+
   const slotsByDay = useMemo(
     () =>
       consultationAvailabilityDays.map((day) => ({
         ...day,
         slots: slots
           .filter((slot) => slot.dayOfWeek === day.value)
-          .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+          .sort((a, b) => normalizeTime(a.startTime).localeCompare(normalizeTime(b.startTime))),
       })),
     [slots],
   );
 
   const selectedDayLabel = consultationAvailabilityDays.find((day) => day.value === selectedDay)?.label ?? "요일";
 
-  const handleAddSlot = (event: FormEvent<HTMLFormElement>) => {
+  const openCreateForm = () => {
+    setEditingSlot(null);
+    setForm((current) => ({ ...initialForm, dayOfWeek: current.dayOfWeek || selectedDay }));
+    setErrorMessage("");
+    setIsFormOpen(true);
+  };
+
+  const openEditForm = (slot: ConsultationAvailabilityResponse) => {
+    setEditingSlot(slot);
+    setForm({
+      dayOfWeek: slot.dayOfWeek,
+      startTime: normalizeTime(slot.startTime),
+      endTime: normalizeTime(slot.endTime),
+      consultationType: slot.consultationType,
+    });
+    setErrorMessage("");
+    setIsFormOpen(true);
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const validationMessage = validateSlot(form, slots);
+    if (!accessToken) {
+      setErrorMessage("로그인이 필요합니다.");
+      return;
+    }
+
+    const validationMessage = validateSlot(form, slots, editingSlot?.availabilityId);
     if (validationMessage) {
       setErrorMessage(validationMessage);
       return;
     }
 
-    setSlots((current) => [
-      ...current,
-      {
-        id: `availability-${Date.now()}`,
-        ...form,
-        active: true,
-      },
-    ]);
-    setForm((current) => ({ ...initialForm, dayOfWeek: current.dayOfWeek }));
+    const payload: ConsultationAvailabilityRequest = form;
+    setIsSaving(true);
     setErrorMessage("");
-    setIsFormOpen(false);
+    try {
+      if (editingSlot) {
+        await updateAcademyConsultationAvailability(editingSlot.availabilityId, payload, accessToken);
+      } else {
+        await createAcademyConsultationAvailability(payload, accessToken);
+      }
+      setForm((current) => ({ ...initialForm, dayOfWeek: current.dayOfWeek }));
+      setEditingSlot(null);
+      setIsFormOpen(false);
+      await loadAvailability();
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : "상담 가능 시간을 저장하지 못했습니다.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const toggleActive = (slotId: string) => {
-    setSlots((current) => current.map((slot) => (slot.id === slotId ? { ...slot, active: !slot.active } : slot)));
-  };
+  const deactivateSlot = async (slot: ConsultationAvailabilityResponse) => {
+    if (!accessToken) {
+      return;
+    }
 
-  const deleteSlot = (slotId: string) => {
-    setSlots((current) => current.filter((slot) => slot.id !== slotId));
+    setLoadErrorMessage("");
+    try {
+      await deleteAcademyConsultationAvailability(slot.availabilityId, accessToken);
+      await loadAvailability();
+    } catch (error) {
+      setLoadErrorMessage(error instanceof ApiError ? error.message : "상담 가능 시간을 비활성화하지 못했습니다.");
+    }
   };
 
   return (
@@ -83,16 +156,21 @@ export function ConsultationAvailabilitySettings() {
         </div>
         <button
           type="button"
-          onClick={() => {
-            setForm((current) => ({ ...current, dayOfWeek: selectedDay }));
-            setErrorMessage("");
-            setIsFormOpen(true);
-          }}
+          onClick={openCreateForm}
           className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white shadow-lg shadow-blue-200/70 transition hover:bg-blue-800"
         >
           시간 추가
         </button>
       </div>
+
+      {loadErrorMessage ? (
+        <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+          <p>{loadErrorMessage}</p>
+          <button type="button" onClick={loadAvailability} className="mt-2 font-bold text-red-700 underline">
+            다시 시도
+          </button>
+        </div>
+      ) : null}
 
       <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
         {consultationAvailabilityDays.map((day) => (
@@ -109,33 +187,44 @@ export function ConsultationAvailabilitySettings() {
         ))}
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        {slotsByDay.map((day) => (
-          <section
-            key={day.value}
-            className={`rounded-3xl border p-4 ${
-              selectedDay === day.value ? "border-blue-200 bg-blue-50/50" : "border-slate-200 bg-slate-50/80"
-            }`}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="font-bold text-slate-950">{day.label}</h3>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
-                {day.slots.length}개
-              </span>
-            </div>
-            <div className="mt-3 grid gap-2">
-              {day.slots.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-slate-300 bg-white/70 px-4 py-5 text-sm font-semibold text-slate-500">
-                  등록된 상담 가능 시간이 없습니다.
-                </p>
-              ) : null}
-              {day.slots.map((slot) => (
-                <AvailabilitySlotCard key={slot.id} slot={slot} onToggleActive={toggleActive} onDelete={deleteSlot} />
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+      {isLoading ? (
+        <p className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-500">
+          상담 가능 시간을 불러오는 중입니다.
+        </p>
+      ) : (
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          {slotsByDay.map((day) => (
+            <section
+              key={day.value}
+              className={`rounded-3xl border p-4 ${
+                selectedDay === day.value ? "border-blue-200 bg-blue-50/50" : "border-slate-200 bg-slate-50/80"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-bold text-slate-950">{day.label}</h3>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
+                  {day.slots.length}개
+                </span>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {day.slots.length === 0 ? (
+                  <p className="rounded-2xl border border-dashed border-slate-300 bg-white/70 px-4 py-5 text-sm font-semibold text-slate-500">
+                    등록된 상담 가능 시간이 없습니다.
+                  </p>
+                ) : null}
+                {day.slots.map((slot) => (
+                  <AvailabilitySlotCard
+                    key={slot.availabilityId}
+                    slot={slot}
+                    onEdit={openEditForm}
+                    onDeactivate={deactivateSlot}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
 
       {isFormOpen ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-3 py-4 sm:items-center">
@@ -143,20 +232,20 @@ export function ConsultationAvailabilitySettings() {
             <div className="border-b border-slate-200 px-5 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-950">시간 추가</h2>
-                  <p className="mt-1 text-sm text-slate-600">{selectedDayLabel} 상담 가능 시간을 등록합니다.</p>
+                  <h2 className="text-xl font-bold text-slate-950">{editingSlot ? "시간 수정" : "시간 추가"}</h2>
+                  <p className="mt-1 text-sm text-slate-600">{selectedDayLabel} 상담 가능 시간을 설정합니다.</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
                   className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
-                  aria-label="상담 가능 시간 추가 닫기"
+                  aria-label="상담 가능 시간 설정 닫기"
                 >
-                  ×
+                  x
                 </button>
               </div>
             </div>
-            <form className="grid gap-4 px-5 py-5" onSubmit={handleAddSlot}>
+            <form className="grid gap-4 px-5 py-5" onSubmit={handleSubmit}>
               {errorMessage ? (
                 <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
                   {errorMessage}
@@ -183,22 +272,23 @@ export function ConsultationAvailabilitySettings() {
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">상담 유형</span>
                 <select
-                  value={form.type}
-                  onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as ConsultationAvailabilityType }))}
+                  value={form.consultationType}
+                  onChange={(event) => setForm((current) => ({ ...current, consultationType: event.target.value as ConsultationAvailabilityType }))}
                   className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 >
                   {consultationAvailabilityTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
+                    <option key={type.value} value={type.value}>
+                      {type.label}
                     </option>
                   ))}
                 </select>
               </label>
               <button
                 type="submit"
-                className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white shadow-lg shadow-blue-200/70 transition hover:bg-blue-800"
+                disabled={isSaving}
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white shadow-lg shadow-blue-200/70 transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
               >
-                시간 추가
+                {isSaving ? "저장 중" : editingSlot ? "시간 수정" : "시간 추가"}
               </button>
             </form>
           </section>
@@ -210,14 +300,15 @@ export function ConsultationAvailabilitySettings() {
 
 function AvailabilitySlotCard({
   slot,
-  onToggleActive,
-  onDelete,
+  onEdit,
+  onDeactivate,
 }: {
-  slot: ConsultationAvailabilitySlot;
-  onToggleActive: (slotId: string) => void;
-  onDelete: (slotId: string) => void;
+  slot: ConsultationAvailabilityResponse;
+  onEdit: (slot: ConsultationAvailabilityResponse) => void;
+  onDeactivate: (slot: ConsultationAvailabilityResponse) => void;
 }) {
   const dayLabel = consultationAvailabilityDays.find((day) => day.value === slot.dayOfWeek)?.label ?? slot.dayOfWeek;
+  const active = slot.status === "ACTIVE";
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -225,29 +316,30 @@ function AvailabilitySlotCard({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-bold text-slate-950">{dayLabel}</p>
-            <span className={`rounded-full px-3 py-1 text-xs font-bold ${slot.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-              {slot.active ? "활성" : "비활성"}
+            <span className={`rounded-full px-3 py-1 text-xs font-bold ${active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+              {active ? "활성" : "비활성"}
             </span>
           </div>
           <p className="mt-2 text-lg font-bold text-slate-950">
-            {slot.startTime} - {slot.endTime}
+            {normalizeTime(slot.startTime)} - {normalizeTime(slot.endTime)}
           </p>
-          <p className="mt-1 text-sm font-semibold text-slate-600">{slot.type}</p>
+          <p className="mt-1 text-sm font-semibold text-slate-600">{consultationAvailabilityTypeLabels[slot.consultationType]}</p>
         </div>
         <div className="flex shrink-0 gap-2">
           <button
             type="button"
-            onClick={() => onToggleActive(slot.id)}
+            onClick={() => onEdit(slot)}
             className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
           >
-            {slot.active ? "비활성화" : "활성화"}
+            수정
           </button>
           <button
             type="button"
-            onClick={() => onDelete(slot.id)}
-            className="inline-flex h-10 items-center justify-center rounded-2xl border border-red-100 bg-white px-3 text-sm font-bold text-red-600 transition hover:bg-red-50"
+            onClick={() => onDeactivate(slot)}
+            disabled={!active}
+            className="inline-flex h-10 items-center justify-center rounded-2xl border border-red-100 bg-white px-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
           >
-            삭제
+            비활성화
           </button>
         </div>
       </div>
@@ -269,16 +361,20 @@ function TimeField({ label, value, onChange }: { label: string; value: string; o
   );
 }
 
-function validateSlot(form: AvailabilityForm, slots: ConsultationAvailabilitySlot[]) {
+function validateSlot(
+  form: AvailabilityForm,
+  slots: ConsultationAvailabilityResponse[],
+  editingAvailabilityId?: number,
+) {
   if (form.startTime >= form.endTime) {
     return "시작 시간은 종료 시간보다 빨라야 합니다.";
   }
 
   const overlaps = slots.some((slot) => {
-    if (slot.dayOfWeek !== form.dayOfWeek) {
+    if (slot.status !== "ACTIVE" || slot.dayOfWeek !== form.dayOfWeek || slot.availabilityId === editingAvailabilityId) {
       return false;
     }
-    return form.startTime < slot.endTime && slot.startTime < form.endTime;
+    return form.startTime < normalizeTime(slot.endTime) && normalizeTime(slot.startTime) < form.endTime;
   });
 
   if (overlaps) {
@@ -286,4 +382,8 @@ function validateSlot(form: AvailabilityForm, slots: ConsultationAvailabilitySlo
   }
 
   return "";
+}
+
+function normalizeTime(time: string) {
+  return time.slice(0, 5);
 }

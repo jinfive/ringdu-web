@@ -1,36 +1,79 @@
-export type ConsultationStatus = "REQUESTED" | "APPROVED" | "REJECTED" | "COMPLETED";
+export type ConsultationStatus = "REQUESTED" | "APPROVED" | "REJECTED" | "COMPLETED" | "CANCELED";
 
-export type ConsultationTopic = "학습 상담" | "생활 상담" | "진도 상담" | "기타";
+export type ConsultationTopic = "STUDY" | "LIFE" | "PROGRESS" | "ETC";
 
-export type ConsultationRequestType = "신규 상담" | "재원생 상담";
+export type ConsultationRequestType = "NEW_STUDENT" | "ENROLLED_STUDENT";
 
-export type ConsultationAvailabilityDay = "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
+export type ConsultationAvailabilityDay =
+  | "MONDAY"
+  | "TUESDAY"
+  | "WEDNESDAY"
+  | "THURSDAY"
+  | "FRIDAY"
+  | "SATURDAY"
+  | "SUNDAY";
 
-export type ConsultationAvailabilityType = "신규생 상담" | "재원생 상담" | "전체";
+export type ConsultationAvailabilityType = "NEW_STUDENT" | "ENROLLED_STUDENT" | "ALL";
 
-export type ConsultationAvailabilitySlot = {
-  id: string;
+export type ConsultationAvailabilityStatus = "ACTIVE" | "INACTIVE";
+
+export type ConsultationAvailabilityRequest = {
   dayOfWeek: ConsultationAvailabilityDay;
   startTime: string;
   endTime: string;
-  type: ConsultationAvailabilityType;
-  active: boolean;
+  consultationType: ConsultationAvailabilityType;
 };
 
-export type ConsultationRequest = {
-  id: string;
-  type: ConsultationRequestType;
+export type ConsultationAvailabilityResponse = ConsultationAvailabilityRequest & {
+  availabilityId: number;
+  dayLabel: string;
+  status: ConsultationAvailabilityStatus;
+};
+
+export type ParentConsultationOptionResponse = {
+  studentProfileId: number;
   studentName: string;
-  guardianPhone: string;
+  academyId: number;
   academyName: string;
-  teacherName?: string;
-  className?: string;
-  subject?: string;
-  topic: ConsultationTopic | "입학 상담";
-  preferredDate: string;
-  preferredTime: string;
-  message: string;
+  teachers: ParentConsultationTeacherOption[];
+};
+
+export type ParentConsultationTeacherOption = {
+  teacherUserId: number;
+  teacherName: string;
+  classId: number;
+  className: string;
+};
+
+export type ConsultationRequestCreateRequest = {
+  academyId: number;
+  studentProfileId: number;
+  teacherUserId?: number | null;
+  requestedDate: string;
+  requestedStartTime: string;
+  requestedEndTime: string;
+  topic: ConsultationTopic;
+  content: string;
+};
+
+export type ConsultationRequestResponse = {
+  consultationRequestId: number;
+  academyId: number;
+  academyName: string;
+  studentProfileId: number;
+  studentName: string;
+  teacherUserId?: number | null;
+  teacherName?: string | null;
+  requestedDate: string;
+  requestedStartTime: string;
+  requestedEndTime: string;
+  consultationType: "ENROLLED_STUDENT";
+  topic: ConsultationTopic;
+  topicLabel: string;
+  content: string;
   status: ConsultationStatus;
+  statusLabel: string;
+  academyMemo?: string | null;
 };
 
 export const consultationStatusLabels: Record<ConsultationStatus, string> = {
@@ -38,6 +81,7 @@ export const consultationStatusLabels: Record<ConsultationStatus, string> = {
   APPROVED: "승인됨",
   REJECTED: "거절됨",
   COMPLETED: "완료됨",
+  CANCELED: "취소됨",
 };
 
 export const consultationStatusStyles: Record<ConsultationStatus, string> = {
@@ -45,9 +89,22 @@ export const consultationStatusStyles: Record<ConsultationStatus, string> = {
   APPROVED: "bg-blue-50 text-blue-700 ring-blue-100",
   REJECTED: "bg-red-50 text-red-700 ring-red-100",
   COMPLETED: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+  CANCELED: "bg-slate-100 text-slate-500 ring-slate-200",
 };
 
-export const consultationTopics: ConsultationTopic[] = ["학습 상담", "생활 상담", "진도 상담", "기타"];
+export const consultationTopicLabels: Record<ConsultationTopic, string> = {
+  STUDY: "학습 상담",
+  LIFE: "생활 상담",
+  PROGRESS: "진도 상담",
+  ETC: "기타",
+};
+
+export const consultationTopics: Array<{ value: ConsultationTopic; label: string }> = [
+  { value: "STUDY", label: "학습 상담" },
+  { value: "LIFE", label: "생활 상담" },
+  { value: "PROGRESS", label: "진도 상담" },
+  { value: "ETC", label: "기타" },
+];
 
 export const consultationAvailabilityDays: Array<{ value: ConsultationAvailabilityDay; shortLabel: string; label: string }> = [
   { value: "MONDAY", shortLabel: "월", label: "월요일" },
@@ -59,73 +116,18 @@ export const consultationAvailabilityDays: Array<{ value: ConsultationAvailabili
   { value: "SUNDAY", shortLabel: "일", label: "일요일" },
 ];
 
-export const consultationAvailabilityTypes: ConsultationAvailabilityType[] = ["신규생 상담", "재원생 상담", "전체"];
+export const consultationAvailabilityTypeLabels: Record<ConsultationAvailabilityType, string> = {
+  NEW_STUDENT: "신규생 상담",
+  ENROLLED_STUDENT: "재원생 상담",
+  ALL: "전체",
+};
 
-export const mockConsultationAvailabilitySlots: ConsultationAvailabilitySlot[] = [
-  {
-    id: "availability-1",
-    dayOfWeek: "MONDAY",
-    startTime: "14:00",
-    endTime: "14:30",
-    type: "전체",
-    active: true,
-  },
-  {
-    id: "availability-2",
-    dayOfWeek: "MONDAY",
-    startTime: "15:00",
-    endTime: "15:30",
-    type: "신규생 상담",
-    active: true,
-  },
-  {
-    id: "availability-3",
-    dayOfWeek: "TUESDAY",
-    startTime: "16:00",
-    endTime: "16:30",
-    type: "재원생 상담",
-    active: true,
-  },
-  {
-    id: "availability-4",
-    dayOfWeek: "TUESDAY",
-    startTime: "17:00",
-    endTime: "17:30",
-    type: "전체",
-    active: false,
-  },
+export const consultationAvailabilityTypes: Array<{ value: ConsultationAvailabilityType; label: string }> = [
+  { value: "NEW_STUDENT", label: "신규생 상담" },
+  { value: "ENROLLED_STUDENT", label: "재원생 상담" },
+  { value: "ALL", label: "전체" },
 ];
 
 export const consultationTimeSlots = ["14:00", "14:30", "15:00", "15:30", "16:00", "16:30"];
 
 export const disabledConsultationTimeSlots = ["15:30"];
-
-export const mockConsultationRequests: ConsultationRequest[] = [
-  {
-    id: "new-1",
-    type: "신규 상담",
-    studentName: "박예비",
-    guardianPhone: "010-4422-1201",
-    academyName: "지누수학",
-    subject: "중등 수학",
-    topic: "입학 상담",
-    preferredDate: "2026-06-05",
-    preferredTime: "14:30",
-    message: "중학교 1학년 수학 선행 상담을 받고 싶습니다.",
-    status: "REQUESTED",
-  },
-  {
-    id: "enrolled-1",
-    type: "재원생 상담",
-    studentName: "김학생",
-    guardianPhone: "010-1188-5522",
-    academyName: "지누수학",
-    teacherName: "김선생",
-    className: "중등 수학 A반",
-    topic: "진도 상담",
-    preferredDate: "2026-06-06",
-    preferredTime: "16:00",
-    message: "최근 단원 이해도와 다음 달 진도 계획을 상담하고 싶습니다.",
-    status: "APPROVED",
-  },
-];

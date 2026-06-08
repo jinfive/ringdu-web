@@ -19,7 +19,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ConsultationAvailabilitySettings } from "@/components/consultation/ConsultationAvailabilitySettings";
-import { ConsultationRequestPanel, ConsultationStatusBadge } from "@/components/consultation/ConsultationRequestPanel";
+import { ConsultationRequestPanel } from "@/components/consultation/ConsultationRequestPanel";
 import {
   attendanceStatusLabels,
   attendanceStatusStyles,
@@ -30,7 +30,6 @@ import {
   type AcademyStudentAttendanceRecordResponse,
   type AttendanceStatus,
 } from "@/types/attendance";
-import { mockConsultationRequests } from "@/types/consultation";
 import type {
   AcademyStudentResponse,
   AcademyTeacherResponse,
@@ -849,11 +848,6 @@ function StudentAttendanceStatusBadge({ status }: { status: AttendanceStatus }) 
 }
 
 function StudentConsultationMemoTab({ student }: { student: AcademyStudentResponse }) {
-  const relatedRequests = mockConsultationRequests.filter((request) => request.studentName === student.name);
-  const requested = relatedRequests.filter((request) => request.status === "REQUESTED");
-  const scheduled = relatedRequests.filter((request) => request.status === "APPROVED");
-  const completed = relatedRequests.filter((request) => request.status === "COMPLETED");
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -873,9 +867,9 @@ function StudentConsultationMemoTab({ student }: { student: AcademyStudentRespon
       </div>
 
       <div className="grid gap-3 lg:grid-cols-3">
-        <ConsultationMemoColumn title="상담 요청" requests={requested} emptyText="대기 중인 상담 요청이 없습니다." />
-        <ConsultationMemoColumn title="상담 예정" requests={scheduled} emptyText="승인된 상담 일정이 없습니다." />
-        <ConsultationMemoColumn title="상담 완료 기록" requests={completed} emptyText="완료된 상담 기록이 없습니다." />
+        <ConsultationMemoColumn title="상담 요청" emptyText={`${student.name} 학생의 대기 중인 상담 요청이 없습니다.`} />
+        <ConsultationMemoColumn title="상담 예정" emptyText="승인된 상담 일정이 없습니다." />
+        <ConsultationMemoColumn title="상담 완료 기록" emptyText="완료된 상담 기록이 없습니다." />
       </div>
     </div>
   );
@@ -883,31 +877,18 @@ function StudentConsultationMemoTab({ student }: { student: AcademyStudentRespon
 
 function ConsultationMemoColumn({
   title,
-  requests,
   emptyText,
 }: {
   title: string;
-  requests: typeof mockConsultationRequests;
   emptyText: string;
 }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-slate-50/80 p-4">
       <h4 className="font-bold text-slate-950">{title}</h4>
-      {requests.length === 0 ? <p className="mt-3 text-sm leading-6 text-slate-600">{emptyText}</p> : null}
-      <div className="mt-3 grid gap-3">
-        {requests.map((request) => (
-          <article key={request.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="font-bold text-slate-950">{request.topic}</p>
-              <ConsultationStatusBadge status={request.status} />
-            </div>
-            <p className="mt-2 text-sm font-semibold text-slate-600">
-              {request.preferredDate} {request.preferredTime}
-            </p>
-            <p className="mt-2 text-sm leading-6 text-slate-700">{request.message}</p>
-          </article>
-        ))}
-      </div>
+      <p className="mt-3 text-sm leading-6 text-slate-600">{emptyText}</p>
+      <p className="mt-3 rounded-2xl border border-dashed border-slate-300 bg-white/80 px-4 py-4 text-sm font-semibold text-slate-500">
+        상담 요청이 승인되면 이곳에서 상담 이력을 관리할 수 있습니다.
+      </p>
     </section>
   );
 }
