@@ -912,6 +912,7 @@ export async function getAcademyConsultationRequests(
     from?: string | null;
     to?: string | null;
     type?: ConsultationRequestType | null;
+    studentProfileId?: number | null;
   } = {},
 ): Promise<ConsultationRequestResponse[]> {
   const params = new URLSearchParams();
@@ -919,6 +920,7 @@ export async function getAcademyConsultationRequests(
   if (query.from) params.set("from", query.from);
   if (query.to) params.set("to", query.to);
   if (query.type) params.set("type", query.type);
+  if (query.studentProfileId) params.set("studentProfileId", String(query.studentProfileId));
   const suffix = params.toString() ? `?${params.toString()}` : "";
 
   return request<ConsultationRequestResponse[]>(`/api/academies/me/consultation-requests${suffix}`, {
