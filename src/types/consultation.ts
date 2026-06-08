@@ -17,6 +17,49 @@ export type ConsultationAvailabilityType = "NEW_STUDENT" | "ENROLLED_STUDENT" | 
 
 export type ConsultationAvailabilityStatus = "ACTIVE" | "INACTIVE";
 
+export type ConsultationMemoWriterRole = "ACADEMY" | "TEACHER";
+
+export type ConsultationMemo = {
+  consultationMemoId: number;
+  academyId: number;
+  academyName: string;
+  studentProfileId: number;
+  studentName: string;
+  consultationRequestId?: number | null;
+  writerUserId: number;
+  writerRole: ConsultationMemoWriterRole;
+  writerName: string;
+  title: string;
+  content: string;
+  nextAction?: string | null;
+  consultationDate: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ConsultationMemoCreateRequest = {
+  studentProfileId?: number | null;
+  consultationRequestId?: number | null;
+  title: string;
+  content: string;
+  nextAction?: string | null;
+  consultationDate: string;
+};
+
+export type ConsultationMemoUpdateRequest = {
+  title: string;
+  content: string;
+  nextAction?: string | null;
+  consultationDate: string;
+};
+
+export type TeacherConsultationStudentResponse = {
+  studentProfileId: number;
+  studentName: string;
+  academyId: number;
+  academyName: string;
+};
+
 export type ConsultationAvailabilityRequest = {
   dayOfWeek: ConsultationAvailabilityDay;
   startTime: string;
@@ -91,6 +134,16 @@ export const consultationStatusStyles: Record<ConsultationStatus, string> = {
   REJECTED: "bg-red-50 text-red-700 ring-red-100",
   COMPLETED: "bg-emerald-50 text-emerald-700 ring-emerald-100",
   CANCELED: "bg-slate-100 text-slate-500 ring-slate-200",
+};
+
+export const consultationMemoWriterRoleLabels: Record<ConsultationMemoWriterRole, string> = {
+  ACADEMY: "학원 작성",
+  TEACHER: "선생님 작성",
+};
+
+export const consultationMemoWriterRoleStyles: Record<ConsultationMemoWriterRole, string> = {
+  ACADEMY: "bg-blue-50 text-blue-700 ring-blue-100",
+  TEACHER: "bg-emerald-50 text-emerald-700 ring-emerald-100",
 };
 
 export const consultationTopicLabels: Record<ConsultationTopic, string> = {
