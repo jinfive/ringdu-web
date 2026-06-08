@@ -1020,6 +1020,20 @@ export async function getTeacherConsultationRequests(
   });
 }
 
+export async function completeTeacherConsultationRequest(
+  requestId: number,
+  accessToken: string,
+  memo?: string,
+): Promise<ConsultationRequestResponse> {
+  return request<ConsultationRequestResponse>(`/api/teacher/consultation-requests/${requestId}/complete`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ memo: memo ?? "" }),
+  });
+}
+
 export async function createTeacherConsultationMemo(
   payload: ConsultationMemoCreateRequest,
   accessToken: string,

@@ -1045,7 +1045,6 @@ function StudentConsultationMemoTab({
           <div className="grid gap-3">
             {sortedRequests.map((request) => {
               const linkedMemos = memosByRequestId.get(request.consultationRequestId) ?? [];
-              if (linkedMemos.length === 0) return null;
 
               return (
                 <div key={`linked-${request.consultationRequestId}`} className="rounded-3xl border border-blue-100 bg-blue-50/50 p-4">
@@ -1055,23 +1054,30 @@ function StudentConsultationMemoTab({
                     </p>
                     <StatusBadge>{linkedMemos.length}건</StatusBadge>
                   </div>
-                  <div className="mt-3 grid gap-2">
-                    {linkedMemos.map((memo) => (
-                      <button
-                        key={memo.consultationMemoId}
-                        type="button"
-                        onClick={() => setSelectedMemo(memo)}
-                        className="rounded-2xl border border-white bg-white px-4 py-3 text-left shadow-sm transition hover:border-blue-200"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <ConsultationMemoWriterBadge role={memo.writerRole} />
-                          <span className="text-xs font-bold text-slate-500">{memo.writerName}</span>
-                        </div>
-                        <p className="mt-2 font-bold text-slate-950">{memo.title}</p>
-                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">{memo.content}</p>
-                      </button>
-                    ))}
-                  </div>
+                  {linkedMemos.length === 0 ? (
+                    <p className="mt-3 rounded-2xl border border-dashed border-blue-200 bg-white/70 px-4 py-4 text-sm font-semibold text-slate-500">
+                      아직 상담 메모가 없습니다.
+                    </p>
+                  ) : (
+                    <div className="mt-3 grid gap-2">
+                      {linkedMemos.map((memo) => (
+                        <button
+                          key={memo.consultationMemoId}
+                          type="button"
+                          onClick={() => setSelectedMemo(memo)}
+                          className="rounded-2xl border border-white bg-white px-4 py-3 text-left shadow-sm transition hover:border-blue-200"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <ConsultationMemoWriterBadge role={memo.writerRole} />
+                            <span className="text-xs font-bold text-slate-500">{memo.writerName}</span>
+                          </div>
+                          <p className="mt-2 font-bold text-slate-950">{memo.title}</p>
+                          <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">{memo.content}</p>
+                          {memo.nextAction ? <p className="mt-1 line-clamp-2 text-sm text-slate-500">다음 조치: {memo.nextAction}</p> : null}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}

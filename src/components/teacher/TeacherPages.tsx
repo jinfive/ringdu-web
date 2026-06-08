@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import {
   acceptTeacherInvitation,
   ApiError,
+  completeTeacherConsultationRequest,
   createTeacherAttendanceSession,
   createTeacherConsultationMemo,
   getMyTeacherInvitations,
@@ -29,6 +30,8 @@ import {
 } from "@/types/attendance";
 import type { MyTeacherInvitationResponse, TeacherInvitationStatus } from "@/types/auth";
 import {
+  consultationStatusLabels,
+  consultationStatusStyles,
   consultationMemoWriterRoleLabels,
   consultationMemoWriterRoleStyles,
   type ConsultationMemo,
@@ -200,7 +203,9 @@ export function TeacherConsultationsPage() {
   const [selectedYear, setSelectedYear] = useState(initialMonth.year);
   const [selectedMonth, setSelectedMonth] = useState(initialMonth.month);
   const [editingMemo, setEditingMemo] = useState<ConsultationMemo | null>(null);
+  const [requestForMemo, setRequestForMemo] = useState<ConsultationRequestResponse | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -236,13 +241,21 @@ export function TeacherConsultationsPage() {
     }),
     [memos, selectedMonth, selectedYear],
   );
+  const filteredRequests = useMemo(
+    () => requests.filter((request) => {
+      const date = new Date(`${request.requestedDate}T00:00:00`);
+      return date.getFullYear() === selectedYear && date.getMonth() + 1 === selectedMonth;
+    }),
+    [requests, selectedMonth, selectedYear],
+  );
 
   const closeModal = () => {
     setIsCreateOpen(false);
     setEditingMemo(null);
+    setRequestForMemo(null);
   };
 
-  const saveMemo = async (payload: ConsultationMemoCreateRequest, memoId?: number) => {
+  const saveMemo = async (payload: ConsultationMemoCreateRequest, memoId?: number, completeRequest = false) => {
     if (!accessToken) return;
 
     if (memoId) {
@@ -250,8 +263,26 @@ export function TeacherConsultationsPage() {
     } else {
       await createTeacherConsultationMemo(payload, accessToken);
     }
+    if (completeRequest && payload.consultationRequestId) {
+      await completeTeacherConsultationRequest(payload.consultationRequestId, accessToken, "상담 메모 작성 후 완료");
+    }
     closeModal();
     await loadConsultations();
+  };
+
+  const completeRequest = async (requestId: number) => {
+    if (!accessToken) return;
+
+    setProcessingRequestId(requestId);
+    setErrorMessage("");
+    try {
+      await completeTeacherConsultationRequest(requestId, accessToken, "상담 완료");
+      await loadConsultations();
+    } catch (error) {
+      setErrorMessage(getTeacherErrorMessage(error));
+    } finally {
+      setProcessingRequestId(null);
+    }
   };
 
   return (
@@ -278,7 +309,7 @@ export function TeacherConsultationsPage() {
               <option value="ALL">전체 학생</option>
               {students.map((student) => (
                 <option key={student.studentProfileId} value={student.studentProfileId}>
-                  {student.studentName}
+                  {student.academyName} · {student.studentName}
                 </option>
               ))}
             </TeacherSelect>
@@ -300,6 +331,68 @@ export function TeacherConsultationsPage() {
         </TeacherCard>
 
         {errorMessage ? <AlertMessage tone="error">{errorMessage}</AlertMessage> : null}
+
+        <TeacherCard>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">상담 요청</h2>
+              <p className="mt-1 text-sm text-slate-600">담당 학생의 학부모 상담 요청과 진행 상태를 확인합니다.</p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{filteredRequests.length}건</span>
+          </div>
+          {!isLoading && filteredRequests.length === 0 ? (
+            <TeacherEmptyState title="상담 요청이 없습니다." description="담당 학생의 상담 요청이 접수되면 이곳에 표시됩니다." />
+          ) : null}
+          {filteredRequests.length > 0 ? (
+            <div className="mt-5 grid gap-3">
+              {filteredRequests.map((request) => (
+                <article key={request.consultationRequestId} className="rounded-3xl border border-slate-200 bg-slate-50/70 p-5">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${consultationStatusStyles[request.status]}`}>
+                          {consultationStatusLabels[request.status]}
+                        </span>
+                        <span className="text-sm font-bold text-slate-700">{request.academyName}</span>
+                      </div>
+                      <h3 className="mt-3 text-lg font-bold text-slate-950">{request.studentName} · {request.topicLabel}</h3>
+                      <p className="mt-2 text-sm font-semibold text-slate-600">
+                        {request.requestedDate} {formatTime(request.requestedStartTime)} - {formatTime(request.requestedEndTime)}
+                      </p>
+                      <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-700">{request.content || "요청 내용이 없습니다."}</p>
+                    </div>
+                    <div className="grid shrink-0 gap-2 text-sm text-slate-600 lg:min-w-48">
+                      <span>보호자 {request.parentPhone || "연락처 없음"}</span>
+                      <span>지정 선생님 {request.teacherName ?? "미지정"}</span>
+                    </div>
+                  </div>
+                  {request.status === "APPROVED" ? (
+                    <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRequestForMemo(request);
+                          setIsCreateOpen(true);
+                        }}
+                        className="inline-flex h-10 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white transition hover:bg-blue-800"
+                      >
+                        상담 메모 작성
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void completeRequest(request.consultationRequestId)}
+                        disabled={processingRequestId === request.consultationRequestId}
+                        className="inline-flex h-10 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-bold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {processingRequestId === request.consultationRequestId ? "처리 중" : "완료 처리"}
+                      </button>
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </TeacherCard>
 
         <TeacherCard>
           <div className="flex items-center justify-between gap-3">
@@ -355,6 +448,7 @@ export function TeacherConsultationsPage() {
           students={students}
           requests={requests}
           memo={editingMemo}
+          linkedRequest={requestForMemo}
           defaultStudentId={selectedStudentId === "ALL" ? students[0]?.studentProfileId ?? null : Number(selectedStudentId)}
           onClose={closeModal}
           onSave={saveMemo}
@@ -813,6 +907,7 @@ function TeacherConsultationMemoModal({
   students,
   requests,
   memo,
+  linkedRequest,
   defaultStudentId,
   onClose,
   onSave,
@@ -820,16 +915,18 @@ function TeacherConsultationMemoModal({
   students: TeacherConsultationStudentResponse[];
   requests: ConsultationRequestResponse[];
   memo: ConsultationMemo | null;
+  linkedRequest: ConsultationRequestResponse | null;
   defaultStudentId: number | null;
   onClose: () => void;
-  onSave: (payload: ConsultationMemoCreateRequest, memoId?: number) => Promise<void>;
+  onSave: (payload: ConsultationMemoCreateRequest, memoId?: number, completeRequest?: boolean) => Promise<void>;
 }) {
-  const [studentProfileId, setStudentProfileId] = useState(String(memo?.studentProfileId ?? defaultStudentId ?? ""));
-  const [consultationRequestId, setConsultationRequestId] = useState(String(memo?.consultationRequestId ?? ""));
-  const [consultationDate, setConsultationDate] = useState(memo?.consultationDate ?? getTodayDateInput());
-  const [title, setTitle] = useState(memo?.title ?? "");
+  const [studentProfileId, setStudentProfileId] = useState(String(memo?.studentProfileId ?? linkedRequest?.studentProfileId ?? defaultStudentId ?? ""));
+  const [consultationRequestId, setConsultationRequestId] = useState(String(memo?.consultationRequestId ?? linkedRequest?.consultationRequestId ?? ""));
+  const [consultationDate, setConsultationDate] = useState(memo?.consultationDate ?? linkedRequest?.requestedDate ?? getTodayDateInput());
+  const [title, setTitle] = useState(memo?.title ?? linkedRequest?.topicLabel ?? "");
   const [content, setContent] = useState(memo?.content ?? "");
   const [nextAction, setNextAction] = useState(memo?.nextAction ?? "");
+  const [completeRequest, setCompleteRequest] = useState(linkedRequest?.status === "APPROVED");
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const canEditStudent = !memo;
@@ -855,6 +952,7 @@ function TeacherConsultationMemoModal({
           consultationDate,
         },
         memo?.consultationMemoId,
+        completeRequest,
       );
     } catch (error) {
       setErrorMessage(getTeacherErrorMessage(error));
@@ -901,7 +999,7 @@ function TeacherConsultationMemoModal({
             </TeacherSelect>
             <TeacherInput label="상담일" type="date" value={consultationDate} onChange={setConsultationDate} />
           </div>
-          <TeacherSelect label="상담 요청 연결" value={consultationRequestId} onChange={setConsultationRequestId} disabled={!!memo}>
+          <TeacherSelect label="상담 요청 연결" value={consultationRequestId} onChange={setConsultationRequestId} disabled={!!memo || !!linkedRequest}>
             <option value="">연결 안 함</option>
             {requestOptions.map((request) => (
               <option key={request.consultationRequestId} value={request.consultationRequestId}>
@@ -912,6 +1010,17 @@ function TeacherConsultationMemoModal({
           <TeacherInput label="제목" value={title} onChange={setTitle} placeholder="학습 상담" />
           <TeacherTextarea label="상담 내용" value={content} onChange={setContent} rows={6} placeholder="상담에서 확인한 내용을 입력합니다." />
           <TeacherTextarea label="다음 조치" value={nextAction} onChange={setNextAction} rows={4} placeholder="다음 수업 또는 후속 상담에서 확인할 내용을 입력합니다." />
+          {linkedRequest?.status === "APPROVED" ? (
+            <label className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+              <input
+                type="checkbox"
+                checked={completeRequest}
+                onChange={(event) => setCompleteRequest(event.target.checked)}
+                className="h-4 w-4 accent-emerald-700"
+              />
+              <span className="text-sm font-bold text-emerald-800">메모 저장 후 상담 요청을 완료 처리</span>
+            </label>
+          ) : null}
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -926,7 +1035,7 @@ function TeacherConsultationMemoModal({
               disabled={isSaving}
               className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
             >
-              {isSaving ? "저장 중" : "저장"}
+              {isSaving ? "저장 중" : completeRequest ? "메모 저장 후 완료" : "저장"}
             </button>
           </div>
         </div>
