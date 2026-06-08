@@ -8,10 +8,14 @@ import {
   acceptTeacherInvitation,
   ApiError,
   createTeacherAttendanceSession,
+  createTeacherConsultationMemo,
   getMyTeacherInvitations,
+  getTeacherConsultationMemos,
+  getTeacherConsultationStudents,
   getTeacherTodayClasses,
   rejectTeacherInvitation,
   saveTeacherAttendanceRecords,
+  updateTeacherConsultationMemo,
 } from "@/lib/api";
 import {
   attendanceSessionStatusLabels,
@@ -23,6 +27,13 @@ import {
   type TeacherTodayClassResponse,
 } from "@/types/attendance";
 import type { MyTeacherInvitationResponse, TeacherInvitationStatus } from "@/types/auth";
+import {
+  consultationMemoWriterRoleLabels,
+  consultationMemoWriterRoleStyles,
+  type ConsultationMemo,
+  type ConsultationMemoCreateRequest,
+  type TeacherConsultationStudentResponse,
+} from "@/types/consultation";
 
 const teacherMenu = [
   { href: "/teacher", label: "선생님 홈" },
@@ -152,6 +163,16 @@ export function TeacherDashboardPage() {
         </section>
 
         <TeacherCard>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">상담 관리</h2>
+              <p className="mt-1 text-sm text-slate-600">담당 학생 상담 기록을 작성하고 확인합니다.</p>
+            </div>
+            <TeacherLinkButton href="/teacher/consultations">상담 관리</TeacherLinkButton>
+          </div>
+        </TeacherCard>
+
+        <TeacherCard>
           <h2 className="text-lg font-bold text-slate-950">준비 중 메뉴</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {preparingMenus.map((menu) => (
@@ -163,6 +184,170 @@ export function TeacherDashboardPage() {
           </div>
         </TeacherCard>
       </div>
+    </TeacherShell>
+  );
+}
+
+export function TeacherConsultationsPage() {
+  const { accessToken } = useAuth();
+  const initialMonth = getCurrentMonthFilter();
+  const [students, setStudents] = useState<TeacherConsultationStudentResponse[]>([]);
+  const [memos, setMemos] = useState<ConsultationMemo[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState("ALL");
+  const [selectedYear, setSelectedYear] = useState(initialMonth.year);
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth.month);
+  const [editingMemo, setEditingMemo] = useState<ConsultationMemo | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const loadConsultations = useCallback(async () => {
+    if (!accessToken) return;
+
+    setIsLoading(true);
+    setErrorMessage("");
+    try {
+      const studentId = selectedStudentId === "ALL" ? null : Number(selectedStudentId);
+      const [studentResponses, memoResponses] = await Promise.all([
+        getTeacherConsultationStudents(accessToken),
+        getTeacherConsultationMemos(accessToken, studentId),
+      ]);
+      setStudents(studentResponses);
+      setMemos(memoResponses);
+    } catch (error) {
+      setErrorMessage(getTeacherErrorMessage(error));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, selectedStudentId]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadConsultations);
+  }, [loadConsultations]);
+
+  const filteredMemos = useMemo(
+    () => memos.filter((memo) => {
+      const date = new Date(`${memo.consultationDate}T00:00:00`);
+      return date.getFullYear() === selectedYear && date.getMonth() + 1 === selectedMonth;
+    }),
+    [memos, selectedMonth, selectedYear],
+  );
+
+  const closeModal = () => {
+    setIsCreateOpen(false);
+    setEditingMemo(null);
+  };
+
+  const saveMemo = async (payload: ConsultationMemoCreateRequest, memoId?: number) => {
+    if (!accessToken) return;
+
+    if (memoId) {
+      await updateTeacherConsultationMemo(memoId, payload, accessToken);
+    } else {
+      await createTeacherConsultationMemo(payload, accessToken);
+    }
+    closeModal();
+    await loadConsultations();
+  };
+
+  return (
+    <TeacherShell title="상담 관리">
+      <div className="space-y-6">
+        <TeacherCard>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">상담 관리</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600">담당 학생별 상담 기록을 작성합니다.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsCreateOpen(true)}
+              disabled={students.length === 0}
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+            >
+              상담 메모 작성
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <TeacherSelect label="학생 선택" value={selectedStudentId} onChange={setSelectedStudentId}>
+              <option value="ALL">전체 학생</option>
+              {students.map((student) => (
+                <option key={student.studentProfileId} value={student.studentProfileId}>
+                  {student.studentName}
+                </option>
+              ))}
+            </TeacherSelect>
+            <TeacherSelect label="년도" value={String(selectedYear)} onChange={(value) => setSelectedYear(Number(value))}>
+              {getYearOptions().map((year) => (
+                <option key={year} value={year}>
+                  {year}년
+                </option>
+              ))}
+            </TeacherSelect>
+            <TeacherSelect label="월" value={String(selectedMonth)} onChange={(value) => setSelectedMonth(Number(value))}>
+              {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
+                <option key={month} value={month}>
+                  {month}월
+                </option>
+              ))}
+            </TeacherSelect>
+          </div>
+        </TeacherCard>
+
+        {errorMessage ? <AlertMessage tone="error">{errorMessage}</AlertMessage> : null}
+
+        <TeacherCard>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-slate-950">상담 기록</h2>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{filteredMemos.length}건</span>
+          </div>
+
+          {isLoading ? <p className="mt-5 text-sm font-semibold text-slate-600">상담 기록을 불러오고 있습니다.</p> : null}
+
+          {!isLoading && filteredMemos.length === 0 ? (
+            <TeacherEmptyState title="상담 기록이 없습니다." description="담당 학생을 선택하고 상담 메모를 작성하면 이곳에 표시됩니다." />
+          ) : null}
+
+          {filteredMemos.length > 0 ? (
+            <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200">
+              <div className="hidden grid-cols-[120px_140px_1fr_120px_1.4fr] gap-3 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500 lg:grid">
+                <span>날짜</span>
+                <span>학생명</span>
+                <span>제목</span>
+                <span>작성자</span>
+                <span>메모 요약</span>
+              </div>
+              <div className="divide-y divide-slate-200">
+                {filteredMemos.map((memo) => (
+                  <button
+                    key={memo.consultationMemoId}
+                    type="button"
+                    onClick={() => (memo.writerRole === "TEACHER" ? setEditingMemo(memo) : undefined)}
+                    className="grid w-full gap-2 px-4 py-4 text-left text-sm transition hover:bg-blue-50/60 lg:grid-cols-[120px_140px_1fr_120px_1.4fr] lg:items-center lg:gap-3"
+                  >
+                    <span className="font-bold text-slate-900">{memo.consultationDate}</span>
+                    <span className="font-semibold text-slate-700">{memo.studentName}</span>
+                    <span className="font-bold text-slate-950">{memo.title}</span>
+                    <MemoWriterBadge role={memo.writerRole} />
+                    <span className="line-clamp-2 text-slate-600">{memo.content}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </TeacherCard>
+      </div>
+
+      {isCreateOpen || editingMemo ? (
+        <TeacherConsultationMemoModal
+          students={students}
+          memo={editingMemo}
+          defaultStudentId={selectedStudentId === "ALL" ? students[0]?.studentProfileId ?? null : Number(selectedStudentId)}
+          onClose={closeModal}
+          onSave={saveMemo}
+        />
+      ) : null}
     </TeacherShell>
   );
 }
@@ -612,6 +797,111 @@ export function TeacherAttendanceDetailPage({ classId }: { classId: string }) {
   );
 }
 
+function TeacherConsultationMemoModal({
+  students,
+  memo,
+  defaultStudentId,
+  onClose,
+  onSave,
+}: {
+  students: TeacherConsultationStudentResponse[];
+  memo: ConsultationMemo | null;
+  defaultStudentId: number | null;
+  onClose: () => void;
+  onSave: (payload: ConsultationMemoCreateRequest, memoId?: number) => Promise<void>;
+}) {
+  const [studentProfileId, setStudentProfileId] = useState(String(memo?.studentProfileId ?? defaultStudentId ?? ""));
+  const [consultationDate, setConsultationDate] = useState(memo?.consultationDate ?? getTodayDateInput());
+  const [title, setTitle] = useState(memo?.title ?? "");
+  const [content, setContent] = useState(memo?.content ?? "");
+  const [nextAction, setNextAction] = useState(memo?.nextAction ?? "");
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const canEditStudent = !memo;
+
+  const handleSubmit = async () => {
+    if (!studentProfileId || !title.trim() || !content.trim()) {
+      setErrorMessage("학생, 제목, 상담 내용을 입력해 주세요.");
+      return;
+    }
+
+    setIsSaving(true);
+    setErrorMessage("");
+    try {
+      await onSave(
+        {
+          studentProfileId: Number(studentProfileId),
+          consultationRequestId: memo?.consultationRequestId ?? null,
+          title: title.trim(),
+          content: content.trim(),
+          nextAction: nextAction.trim() || null,
+          consultationDate,
+        },
+        memo?.consultationMemoId,
+      );
+    } catch (error) {
+      setErrorMessage(getTeacherErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-3 py-4 sm:items-center">
+      <section className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4">
+          <div>
+            <h2 className="text-xl font-black text-slate-950">{memo ? "상담 메모 수정" : "상담 메모 작성"}</h2>
+            <p className="mt-1 text-sm text-slate-600">담당 학생 상담 내용을 기록합니다.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
+            aria-label="상담 메모 닫기"
+          >
+            x
+          </button>
+        </div>
+        <div className="space-y-4 px-5 py-5">
+          {errorMessage ? <AlertMessage tone="error">{errorMessage}</AlertMessage> : null}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TeacherSelect label="학생" value={studentProfileId} onChange={setStudentProfileId} disabled={!canEditStudent}>
+              <option value="">학생 선택</option>
+              {students.map((student) => (
+                <option key={student.studentProfileId} value={student.studentProfileId}>
+                  {student.studentName}
+                </option>
+              ))}
+            </TeacherSelect>
+            <TeacherInput label="상담일" type="date" value={consultationDate} onChange={setConsultationDate} />
+          </div>
+          <TeacherInput label="제목" value={title} onChange={setTitle} placeholder="학습 상담" />
+          <TeacherTextarea label="상담 내용" value={content} onChange={setContent} rows={6} placeholder="상담에서 확인한 내용을 입력합니다." />
+          <TeacherTextarea label="다음 조치" value={nextAction} onChange={setNextAction} rows={4} placeholder="다음 수업 또는 후속 상담에서 확인할 내용을 입력합니다." />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSubmit()}
+              disabled={isSaving}
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+            >
+              {isSaving ? "저장 중" : "저장"}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function TeacherShell({ title, children }: { title: string; children: ReactNode }) {
   const { user, logout } = useAuth();
 
@@ -767,6 +1057,96 @@ function AttendanceSessionStatusBadge({ status }: { status: TeacherTodayClassRes
   );
 }
 
+function MemoWriterBadge({ role }: { role: ConsultationMemo["writerRole"] }) {
+  return (
+    <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${consultationMemoWriterRoleStyles[role]}`}>
+      {consultationMemoWriterRoleLabels[role]}
+    </span>
+  );
+}
+
+function TeacherSelect({
+  label,
+  value,
+  onChange,
+  children,
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-400"
+      >
+        {children}
+      </select>
+    </label>
+  );
+}
+
+function TeacherInput({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  placeholder?: string;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+      />
+    </label>
+  );
+}
+
+function TeacherTextarea({
+  label,
+  value,
+  onChange,
+  rows,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  rows: number;
+  placeholder: string;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={rows}
+        placeholder={placeholder}
+        className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+      />
+    </label>
+  );
+}
+
 function toAttendanceState(records: AttendanceRecordResponse[]) {
   return Object.fromEntries(
     records.map((record) => [
@@ -783,6 +1163,19 @@ function getTodayDateInput() {
   const today = new Date();
   const timezoneOffset = today.getTimezoneOffset() * 60_000;
   return new Date(today.getTime() - timezoneOffset).toISOString().slice(0, 10);
+}
+
+function getCurrentMonthFilter() {
+  const now = new Date();
+  return {
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+  };
+}
+
+function getYearOptions() {
+  const currentYear = new Date().getFullYear();
+  return Array.from({ length: 5 }, (_, index) => currentYear - 2 + index);
 }
 
 function formatTime(value: string) {

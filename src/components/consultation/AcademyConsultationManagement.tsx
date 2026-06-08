@@ -8,6 +8,8 @@ import {
   ApiError,
   approveAcademyConsultationRequest,
   completeAcademyConsultationRequest,
+  createAcademyStudentConsultationMemo,
+  getAcademyStudentConsultationMemos,
   getAcademyConsultationRequests,
   rejectAcademyConsultationRequest,
 } from "@/lib/api";
@@ -15,6 +17,9 @@ import {
   consultationStatusLabels,
   consultationStatusStyles,
   consultationTopicLabels,
+  consultationMemoWriterRoleLabels,
+  consultationMemoWriterRoleStyles,
+  type ConsultationMemo,
   type ConsultationRequestResponse,
   type ConsultationStatus,
 } from "@/types/consultation";
@@ -293,9 +298,65 @@ export function ConsultationDetailModal({
   onProcess: (request: ConsultationRequestResponse, action: ConsultationAction) => void;
   onMemoSave: (requestId: number, memo: ConsultationMemoDraft) => void;
 }) {
+  const { accessToken } = useAuth();
   const [content, setContent] = useState(memoDraft?.content ?? request.academyMemo ?? "");
   const [nextAction, setNextAction] = useState(memoDraft?.nextAction ?? "");
+  const [title, setTitle] = useState(request.topicLabel || consultationTopicLabels[request.topic]);
+  const [memos, setMemos] = useState<ConsultationMemo[]>([]);
+  const [isSavingMemo, setIsSavingMemo] = useState(false);
+  const [memoErrorMessage, setMemoErrorMessage] = useState("");
   const isReadOnly = request.status === "REJECTED" || request.status === "CANCELED";
+
+  useEffect(() => {
+    if (!accessToken) return;
+
+    let isMounted = true;
+    void getAcademyStudentConsultationMemos(request.studentProfileId, accessToken)
+      .then((responses) => {
+        if (isMounted) {
+          setMemos(responses.filter((memo) => memo.consultationRequestId === request.consultationRequestId));
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setMemoErrorMessage(error instanceof ApiError ? error.message : "상담 메모를 불러오지 못했습니다.");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken, request.consultationRequestId, request.studentProfileId]);
+
+  const saveMemo = async () => {
+    if (!accessToken || !content.trim()) {
+      setMemoErrorMessage("상담 내용을 입력해 주세요.");
+      return;
+    }
+
+    setIsSavingMemo(true);
+    setMemoErrorMessage("");
+    try {
+      const saved = await createAcademyStudentConsultationMemo(
+        request.studentProfileId,
+        {
+          studentProfileId: request.studentProfileId,
+          consultationRequestId: request.consultationRequestId,
+          title: title.trim() || request.topicLabel || consultationTopicLabels[request.topic],
+          content: content.trim(),
+          nextAction: nextAction.trim() || null,
+          consultationDate: request.requestedDate,
+        },
+        accessToken,
+      );
+      setMemos((current) => [saved, ...current]);
+      onMemoSave(request.consultationRequestId, { content, nextAction });
+    } catch (error) {
+      setMemoErrorMessage(error instanceof ApiError ? error.message : "상담 메모를 저장하지 못했습니다.");
+    } finally {
+      setIsSavingMemo(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-3 py-4 sm:items-center">
@@ -341,11 +402,39 @@ export function ConsultationDetailModal({
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h3 className="text-lg font-bold text-slate-950">상담 메모</h3>
-                <p className="mt-1 text-sm text-slate-600">메모는 현재 화면에서만 임시 저장됩니다.</p>
+                <p className="mt-1 text-sm text-slate-600">상담 완료 전후로 상담 내용과 다음 조치를 기록합니다.</p>
               </div>
-              <StatusBadge>API 연동 예정</StatusBadge>
+              <StatusBadge>{memos.length}건</StatusBadge>
             </div>
+            {memoErrorMessage ? <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{memoErrorMessage}</p> : null}
+            {memos.length > 0 ? (
+              <div className="mt-4 grid gap-3">
+                {memos.map((memo) => (
+                  <div key={memo.consultationMemoId} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${consultationMemoWriterRoleStyles[memo.writerRole]}`}>
+                        {consultationMemoWriterRoleLabels[memo.writerRole]}
+                      </span>
+                      <span className="text-xs font-bold text-slate-500">{memo.writerName}</span>
+                    </div>
+                    <h4 className="mt-3 font-bold text-slate-950">{memo.title}</h4>
+                    <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-700">{memo.content}</p>
+                    {memo.nextAction ? <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">다음 조치: {memo.nextAction}</p> : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <div className="mt-4 grid gap-4">
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-slate-700">제목</span>
+                <input
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  disabled={isReadOnly}
+                  className="h-11 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300 focus:bg-white disabled:text-slate-400"
+                  placeholder="상담 제목"
+                />
+              </label>
               <label className="grid gap-2">
                 <span className="text-sm font-bold text-slate-700">상담 내용</span>
                 <textarea
@@ -370,11 +459,11 @@ export function ConsultationDetailModal({
               </label>
               <button
                 type="button"
-                disabled={isReadOnly}
-                onClick={() => onMemoSave(request.consultationRequestId, { content, nextAction })}
+                disabled={isReadOnly || isSavingMemo}
+                onClick={() => void saveMemo()}
                 className="inline-flex h-11 w-fit items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               >
-                메모 임시 저장
+                {isSavingMemo ? "저장 중" : "메모 저장"}
               </button>
             </div>
           </div>

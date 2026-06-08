@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import {
   addAcademyClassStudent,
   ApiError,
+  createAcademyStudentConsultationMemo,
   createTeacherInvitation,
+  getAcademyStudentConsultationMemos,
   getAcademyStudentAttendanceRecords,
   getAcademyConsultationRequests,
   getAcademyClasses,
@@ -44,7 +46,13 @@ import {
   type AcademyStudentAttendanceRecordResponse,
   type AttendanceStatus,
 } from "@/types/attendance";
-import type { ConsultationRequestResponse } from "@/types/consultation";
+import {
+  consultationMemoWriterRoleLabels,
+  consultationMemoWriterRoleStyles,
+  type ConsultationMemo,
+  type ConsultationMemoCreateRequest,
+  type ConsultationRequestResponse,
+} from "@/types/consultation";
 import type {
   AcademyStudentResponse,
   AcademyTeacherResponse,
@@ -876,7 +884,10 @@ function StudentConsultationMemoTab({
   const [selectedYear, setSelectedYear] = useState(initialMonth.year);
   const [selectedMonth, setSelectedMonth] = useState(initialMonth.month);
   const [requests, setRequests] = useState<ConsultationRequestResponse[]>([]);
+  const [memos, setMemos] = useState<ConsultationMemo[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<ConsultationRequestResponse | null>(null);
+  const [selectedMemo, setSelectedMemo] = useState<ConsultationMemo | null>(null);
+  const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
   const [memoDrafts, setMemoDrafts] = useState<Record<number, ConsultationMemoDraft>>({});
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -890,12 +901,18 @@ function StudentConsultationMemoTab({
 
     setIsLoading(true);
     setErrorMessage("");
-    getAcademyConsultationRequests(accessToken, {
-      studentProfileId: student.id,
-      from: monthRange.from,
-      to: monthRange.to,
-    })
-      .then(setRequests)
+    Promise.all([
+      getAcademyConsultationRequests(accessToken, {
+        studentProfileId: student.id,
+        from: monthRange.from,
+        to: monthRange.to,
+      }),
+      getAcademyStudentConsultationMemos(student.id, accessToken),
+    ])
+      .then(([requestResponses, memoResponses]) => {
+        setRequests(requestResponses);
+        setMemos(memoResponses);
+      })
       .catch((error) => setErrorMessage(getErrorMessage(error)))
       .finally(() => setIsLoading(false));
   }, [accessToken, monthRange.from, monthRange.to, student.id]);
@@ -905,6 +922,13 @@ function StudentConsultationMemoTab({
   }, [loadRequests]);
 
   const sortedRequests = useMemo(() => [...requests].sort(compareConsultationTime), [requests]);
+  const filteredMemos = useMemo(
+    () => memos.filter((memo) => {
+      const date = new Date(`${memo.consultationDate}T00:00:00`);
+      return date.getFullYear() === selectedYear && date.getMonth() + 1 === selectedMonth;
+    }),
+    [memos, selectedMonth, selectedYear],
+  );
 
   const processRequest = async (request: ConsultationRequestResponse, action: "approve" | "reject" | "complete") => {
     if (!accessToken) return;
@@ -932,12 +956,21 @@ function StudentConsultationMemoTab({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="text-lg font-bold text-slate-950">상담 관리</h3>
+          <h3 className="text-lg font-bold text-slate-950">상담 기록</h3>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            상담 요청이 승인되면 이곳에서 상담 이력을 관리할 수 있습니다.
+            상담 예약과 학원/선생님이 작성한 상담 메모를 함께 확인합니다.
           </p>
         </div>
-        <AcademyLinkButton href="/academy/consultations">전체 상담 보기</AcademyLinkButton>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setIsMemoModalOpen(true)}
+            className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-bold text-white transition hover:bg-slate-800"
+          >
+            학원 메모 작성
+          </button>
+          <AcademyLinkButton href="/academy/consultations">전체 상담 보기</AcademyLinkButton>
+        </div>
       </div>
 
       <div className="grid gap-3 rounded-3xl border border-slate-200 bg-slate-50/80 p-4 sm:grid-cols-2">
@@ -986,15 +1019,57 @@ function StudentConsultationMemoTab({
 
       {isLoading ? <p className="text-sm font-semibold text-slate-600">상담 요청을 불러오고 있습니다.</p> : null}
 
-      {!isLoading && sortedRequests.length === 0 ? (
+      {!isLoading && sortedRequests.length === 0 && filteredMemos.length === 0 ? (
         <p className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
           선택한 기간의 상담 기록이 없습니다.
           <br />
-          상담 요청이 승인되면 이곳에 표시됩니다.
+          상담 요청 또는 상담 메모가 있으면 이곳에 표시됩니다.
         </p>
       ) : null}
 
-      {sortedRequests.length > 0 ? <ConsultationTimeline requests={sortedRequests} onSelect={setSelectedRequest} /> : null}
+      {sortedRequests.length > 0 ? (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="font-bold text-slate-950">상담 예약/요청</h4>
+            <StatusBadge>{sortedRequests.length}건</StatusBadge>
+          </div>
+          <ConsultationTimeline requests={sortedRequests} onSelect={setSelectedRequest} />
+        </section>
+      ) : null}
+
+      {filteredMemos.length > 0 ? (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="font-bold text-slate-950">상담 메모</h4>
+            <StatusBadge>{filteredMemos.length}건</StatusBadge>
+          </div>
+          <div className="grid gap-3">
+            {filteredMemos.map((memo) => (
+              <button
+                key={memo.consultationMemoId}
+                type="button"
+                onClick={() => setSelectedMemo(memo)}
+                className="rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50/60"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-black text-slate-950">{memo.consultationDate}</p>
+                      <ConsultationMemoWriterBadge role={memo.writerRole} />
+                    </div>
+                    <h5 className="mt-3 text-lg font-bold text-slate-950">{memo.title}</h5>
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{memo.content}</p>
+                  </div>
+                  <div className="text-sm font-semibold text-slate-600">
+                    <p>{memo.writerName}</p>
+                    <p className="mt-1">{consultationMemoWriterRoleLabels[memo.writerRole]}</p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {selectedRequest ? (
         <ConsultationDetailModal
@@ -1006,7 +1081,197 @@ function StudentConsultationMemoTab({
           onMemoSave={(requestId, memo) => setMemoDrafts((current) => ({ ...current, [requestId]: memo }))}
         />
       ) : null}
+
+      {selectedMemo ? <ConsultationMemoDetailModal memo={selectedMemo} onClose={() => setSelectedMemo(null)} /> : null}
+
+      {isMemoModalOpen ? (
+        <AcademyConsultationMemoCreateModal
+          student={student}
+          onClose={() => setIsMemoModalOpen(false)}
+          onSave={async (payload) => {
+            if (!accessToken) return;
+            await createAcademyStudentConsultationMemo(student.id, payload, accessToken);
+            setIsMemoModalOpen(false);
+            loadRequests();
+          }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function ConsultationMemoDetailModal({ memo, onClose }: { memo: ConsultationMemo; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-3 py-4 sm:items-center">
+      <section className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4">
+          <div>
+            <h2 className="text-xl font-black text-slate-950">상담 상세</h2>
+            <p className="mt-1 text-sm text-slate-600">{memo.studentName} 학생 상담 메모</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
+            aria-label="상담 메모 상세 닫기"
+          >
+            x
+          </button>
+        </div>
+        <div className="space-y-5 px-5 py-5">
+          <div className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-lg font-bold text-slate-950">{memo.title}</h3>
+              <ConsultationMemoWriterBadge role={memo.writerRole} />
+            </div>
+            <div className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
+              <FieldPreview label="상담일" value={memo.consultationDate} />
+              <FieldPreview label="작성자" value={`${memo.writerName} · ${consultationMemoWriterRoleLabels[memo.writerRole]}`} />
+            </div>
+            <div className="mt-5 grid gap-4">
+              <MemoBlock label="상담 내용" value={memo.content} />
+              <MemoBlock label="다음 조치" value={memo.nextAction || "기록된 다음 조치가 없습니다."} />
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AcademyConsultationMemoCreateModal({
+  student,
+  onClose,
+  onSave,
+}: {
+  student: AcademyStudentResponse;
+  onClose: () => void;
+  onSave: (payload: ConsultationMemoCreateRequest) => Promise<void>;
+}) {
+  const [consultationDate, setConsultationDate] = useState(getDateInputValue(new Date()));
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [nextAction, setNextAction] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleSave = async () => {
+    if (!title.trim() || !content.trim()) {
+      setErrorMessage("제목과 상담 내용을 입력해 주세요.");
+      return;
+    }
+
+    setIsSaving(true);
+    setErrorMessage("");
+    try {
+      await onSave({
+        studentProfileId: student.id,
+        consultationRequestId: null,
+        title: title.trim(),
+        content: content.trim(),
+        nextAction: nextAction.trim() || null,
+        consultationDate,
+      });
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 px-3 py-4 sm:items-center">
+      <section className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4">
+          <div>
+            <h2 className="text-xl font-black text-slate-950">학원 상담 메모 작성</h2>
+            <p className="mt-1 text-sm text-slate-600">{student.name} 학생 상담 기록</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 text-lg font-bold text-slate-500 transition hover:bg-slate-50"
+            aria-label="상담 메모 작성 닫기"
+          >
+            x
+          </button>
+        </div>
+        <div className="space-y-4 px-5 py-5">
+          {errorMessage ? <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{errorMessage}</p> : null}
+          <label className="grid gap-2">
+            <span className="text-sm font-bold text-slate-700">상담일</span>
+            <input
+              type="date"
+              value={consultationDate}
+              onChange={(event) => setConsultationDate(event.target.value)}
+              className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+            />
+          </label>
+          <MemoInput label="제목" value={title} onChange={setTitle} placeholder="학부모 상담" />
+          <MemoTextarea label="상담 내용" value={content} onChange={setContent} rows={6} placeholder="상담에서 확인한 내용을 입력합니다." />
+          <MemoTextarea label="다음 조치" value={nextAction} onChange={setNextAction} rows={4} placeholder="후속 조치나 다음 확인 사항을 입력합니다." />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSave()}
+              disabled={isSaving}
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {isSaving ? "저장 중" : "저장"}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ConsultationMemoWriterBadge({ role }: { role: ConsultationMemo["writerRole"] }) {
+  return (
+    <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${consultationMemoWriterRoleStyles[role]}`}>
+      {consultationMemoWriterRoleLabels[role]}
+    </span>
+  );
+}
+
+function MemoBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-bold text-slate-500">{label}</p>
+      <p className="mt-2 whitespace-pre-line rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-slate-700">{value}</p>
+    </div>
+  );
+}
+
+function MemoInput({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder: string }) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+      />
+    </label>
+  );
+}
+
+function MemoTextarea({ label, value, onChange, rows, placeholder }: { label: string; value: string; onChange: (value: string) => void; rows: number; placeholder: string }) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={rows}
+        placeholder={placeholder}
+        className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-900 outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+      />
+    </label>
   );
 }
 
@@ -1935,6 +2200,10 @@ function fallbackInvitationMessage() {
   return "Ringdu에서 선생님 초대장을 보냈습니다.\n초대를 수락하면 해당 학원의 선생님으로 연결됩니다.";
 }
 
+function getDateInputValue(date: Date) {
+  const timezoneOffset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 10);
+}
 
 function formatDate(value: string | null) {
   if (!value) {

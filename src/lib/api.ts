@@ -51,11 +51,15 @@ import type {
   ConsultationAvailabilityRequest,
   ConsultationAvailabilityResponse,
   ConsultationAvailabilityType,
+  ConsultationMemo,
+  ConsultationMemoCreateRequest,
+  ConsultationMemoUpdateRequest,
   ConsultationRequestCreateRequest,
   ConsultationRequestResponse,
   ConsultationRequestType,
   ConsultationStatus,
   ParentConsultationOptionResponse,
+  TeacherConsultationStudentResponse,
 } from "@/types/consultation";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
@@ -971,6 +975,100 @@ export async function completeAcademyConsultationRequest(
   memo?: string,
 ): Promise<ConsultationRequestResponse> {
   return processAcademyConsultationRequest(requestId, "complete", accessToken, memo);
+}
+
+export async function getTeacherConsultationStudents(
+  accessToken: string,
+): Promise<TeacherConsultationStudentResponse[]> {
+  return request<TeacherConsultationStudentResponse[]>("/api/teacher/consultation-memos/students", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getTeacherConsultationMemos(
+  accessToken: string,
+  studentProfileId?: number | null,
+): Promise<ConsultationMemo[]> {
+  const params = new URLSearchParams();
+  if (studentProfileId) params.set("studentProfileId", String(studentProfileId));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+
+  return request<ConsultationMemo[]>(`/api/teacher/consultation-memos${suffix}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createTeacherConsultationMemo(
+  payload: ConsultationMemoCreateRequest,
+  accessToken: string,
+): Promise<ConsultationMemo> {
+  return request<ConsultationMemo>("/api/teacher/consultation-memos", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateTeacherConsultationMemo(
+  memoId: number,
+  payload: ConsultationMemoUpdateRequest,
+  accessToken: string,
+): Promise<ConsultationMemo> {
+  return request<ConsultationMemo>(`/api/teacher/consultation-memos/${memoId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAcademyStudentConsultationMemos(
+  studentProfileId: number,
+  accessToken: string,
+): Promise<ConsultationMemo[]> {
+  return request<ConsultationMemo[]>(`/api/academies/me/students/${studentProfileId}/consultation-memos`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createAcademyStudentConsultationMemo(
+  studentProfileId: number,
+  payload: ConsultationMemoCreateRequest,
+  accessToken: string,
+): Promise<ConsultationMemo> {
+  return request<ConsultationMemo>(`/api/academies/me/students/${studentProfileId}/consultation-memos`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateAcademyConsultationMemo(
+  memoId: number,
+  payload: ConsultationMemoUpdateRequest,
+  accessToken: string,
+): Promise<ConsultationMemo> {
+  return request<ConsultationMemo>(`/api/academies/me/consultation-memos/${memoId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
 }
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {
