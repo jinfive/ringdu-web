@@ -7,6 +7,7 @@ type ConsultationCalendarProps = {
   selectedDate: string;
   onMonthChange: (nextMonth: Date) => void;
   onDateSelect: (date: string) => void;
+  availableDates?: string[];
 };
 
 export function ConsultationCalendar({
@@ -14,6 +15,7 @@ export function ConsultationCalendar({
   selectedDate,
   onMonthChange,
   onDateSelect,
+  availableDates,
 }: ConsultationCalendarProps) {
   const today = toDateKey(new Date());
   const year = visibleMonth.getFullYear();
@@ -65,15 +67,19 @@ export function ConsultationCalendar({
           const dateKey = toDateKey(date);
           const isToday = dateKey === today;
           const isSelected = dateKey === selectedDate;
+          const hasAvailability = !availableDates || availableDates.includes(dateKey);
 
           return (
             <button
               key={dateKey}
               type="button"
+              disabled={!hasAvailability}
               onClick={() => onDateSelect(dateKey)}
               className={`aspect-square rounded-2xl text-sm font-bold transition ${
                 isSelected
                   ? "bg-blue-700 text-white shadow-lg shadow-blue-100"
+                  : !hasAvailability
+                    ? "cursor-not-allowed text-slate-300"
                   : isToday
                     ? "bg-blue-50 text-blue-700 ring-1 ring-blue-100"
                     : "text-slate-700 hover:bg-slate-100"

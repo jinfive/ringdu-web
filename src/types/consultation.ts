@@ -18,6 +18,7 @@ export type ConsultationAvailabilityType = "NEW_STUDENT" | "ENROLLED_STUDENT" | 
 export type ConsultationAvailabilityStatus = "ACTIVE" | "INACTIVE";
 
 export type ConsultationMemoWriterRole = "ACADEMY" | "TEACHER";
+export type ConsultationConsultantType = "ACADEMY_ACCOUNT" | "TEACHER";
 
 export type ConsultationMemo = {
   consultationMemoId: number;
@@ -61,6 +62,9 @@ export type TeacherConsultationStudentResponse = {
 };
 
 export type ConsultationAvailabilityRequest = {
+  academyId?: number | null;
+  consultantType?: ConsultationConsultantType;
+  teacherUserId?: number | null;
   dayOfWeek: ConsultationAvailabilityDay;
   startTime: string;
   endTime: string;
@@ -69,6 +73,12 @@ export type ConsultationAvailabilityRequest = {
 
 export type ConsultationAvailabilityResponse = ConsultationAvailabilityRequest & {
   availabilityId: number;
+  academyId: number;
+  academyName: string;
+  consultantType: ConsultationConsultantType;
+  consultantName: string;
+  teacherUserId?: number | null;
+  teacherName?: string | null;
   dayLabel: string;
   status: ConsultationAvailabilityStatus;
 };
@@ -78,19 +88,43 @@ export type ParentConsultationOptionResponse = {
   studentName: string;
   academyId: number;
   academyName: string;
+  consultants: ParentConsultationConsultantOption[];
   teachers: ParentConsultationTeacherOption[];
+};
+
+export type ParentConsultationConsultantOption = {
+  consultantType: ConsultationConsultantType;
+  teacherUserId?: number | null;
+  consultantName: string;
+  description: string;
+  classNames: string[];
+  available: boolean;
 };
 
 export type ParentConsultationTeacherOption = {
   teacherUserId: number;
   teacherName: string;
-  classId: number;
-  className: string;
+  classNames: string[];
+  available: boolean;
+};
+
+export type ConsultationTimeSlot = {
+  startTime: string;
+  endTime: string;
+  available: boolean;
+  disabledReason?: string | null;
+};
+
+export type ConsultationDateSlot = {
+  date: string;
+  dayOfWeek: ConsultationAvailabilityDay;
+  slots: ConsultationTimeSlot[];
 };
 
 export type ConsultationRequestCreateRequest = {
   academyId: number;
   studentProfileId: number;
+  consultantType: ConsultationConsultantType;
   teacherUserId?: number | null;
   requestedDate: string;
   requestedStartTime: string;
@@ -106,6 +140,8 @@ export type ConsultationRequestResponse = {
   studentProfileId: number;
   studentName: string;
   parentPhone?: string | null;
+  consultantType: ConsultationConsultantType;
+  consultantName: string;
   teacherUserId?: number | null;
   teacherName?: string | null;
   requestedDate: string;

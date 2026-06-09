@@ -345,7 +345,7 @@ function ConsultationRequestCard({
             />
             <RequestField label="상담 주제" value={request.topicLabel} />
             <RequestField label="학원" value={request.academyName} />
-            {request.teacherName ? <RequestField label="담당 선생님" value={request.teacherName} /> : null}
+            <RequestField label="상담 담당" value={request.consultantName} />
           </div>
           <p className="mt-4 whitespace-pre-line rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-slate-700">
             {request.content || "요청 내용이 없습니다."}

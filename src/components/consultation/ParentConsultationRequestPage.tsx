@@ -5,16 +5,17 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import {
   ApiError,
   createParentConsultationRequest,
-  getAcademyPublicConsultationAvailability,
   getParentConsultationOptions,
   getParentConsultationRequests,
+  getParentConsultantAvailability,
 } from "@/lib/api";
 import { ConsultationCalendar, toDateKey } from "./ConsultationCalendar";
 import { ConsultationStatusBadge } from "./ConsultationRequestPanel";
 import { ConsultationTimeSlots } from "./ConsultationTimeSlots";
 import {
   consultationTopics,
-  type ConsultationAvailabilityResponse,
+  type ConsultationDateSlot,
+  type ParentConsultationConsultantOption,
   type ConsultationRequestResponse,
   type ConsultationTopic,
   type ParentConsultationOptionResponse,
@@ -24,9 +25,9 @@ export function ParentConsultationRequestPage() {
   const { accessToken } = useAuth();
   const [options, setOptions] = useState<ParentConsultationOptionResponse[]>([]);
   const [requests, setRequests] = useState<ConsultationRequestResponse[]>([]);
-  const [availability, setAvailability] = useState<ConsultationAvailabilityResponse[]>([]);
+  const [availability, setAvailability] = useState<ConsultationDateSlot[]>([]);
   const [selectedOptionKey, setSelectedOptionKey] = useState("");
-  const [selectedTeacherId, setSelectedTeacherId] = useState("");
+  const [selectedConsultantKey, setSelectedConsultantKey] = useState("");
   const [topic, setTopic] = useState<ConsultationTopic>("STUDY");
   const [visibleMonth, setVisibleMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => toDateKey(new Date()));
@@ -53,7 +54,8 @@ export function ParentConsultationRequestPage() {
       setRequests(requestResponse);
       if (!selectedOptionKey && optionResponse.length > 0) {
         setSelectedOptionKey(optionKey(optionResponse[0]));
-        setSelectedTeacherId(optionResponse[0].teachers[0]?.teacherUserId ? String(optionResponse[0].teachers[0].teacherUserId) : "");
+        const firstAvailableConsultant = optionResponse[0].consultants.find((consultant) => consultant.available);
+        setSelectedConsultantKey(firstAvailableConsultant ? consultantKey(firstAvailableConsultant) : "");
       }
     } catch (error) {
       setErrorMessage(error instanceof ApiError ? error.message : "상담 요청 정보를 불러오지 못했습니다.");
@@ -69,35 +71,49 @@ export function ParentConsultationRequestPage() {
   const selectedOption = options.find((option) => optionKey(option) === selectedOptionKey) ?? null;
 
   useEffect(() => {
-    if (!accessToken || !selectedOption) {
+    if (!accessToken || !selectedOption || !selectedConsultantKey) {
       return;
     }
+
+    const consultant = selectedOption.consultants.find((item) => consultantKey(item) === selectedConsultantKey);
+    if (!consultant) return;
 
     void Promise.resolve().then(() => {
       setIsAvailabilityLoading(true);
       setSelectedSlotKey("");
-      return getAcademyPublicConsultationAvailability(selectedOption.academyId, "ENROLLED_STUDENT", accessToken)
-        .then(setAvailability)
+      return getParentConsultantAvailability(
+        selectedOption.academyId,
+        consultant.consultantType,
+        consultant.teacherUserId ?? null,
+        visibleMonth.getFullYear(),
+        visibleMonth.getMonth() + 1,
+        accessToken,
+      )
+        .then((response) => {
+          setAvailability(response);
+          const firstAvailableDate = response.find((date) => date.slots.some((slot) => slot.available))?.date;
+          setSelectedDate((current) => (
+            firstAvailableDate && !response.some((date) => date.date === current) ? firstAvailableDate : current
+          ));
+        })
         .catch((error) => setErrorMessage(error instanceof ApiError ? error.message : "상담 가능 시간을 불러오지 못했습니다."))
         .finally(() => setIsAvailabilityLoading(false));
     });
-  }, [accessToken, selectedOption]);
+  }, [accessToken, selectedConsultantKey, selectedOption, visibleMonth]);
 
   const availableSlots = useMemo(() => {
-    const dayOfWeek = dayOfWeekFromDateKey(selectedDate);
-    return availability
-      .filter((slot) => slot.status === "ACTIVE" && slot.dayOfWeek === dayOfWeek)
-      .map((slot) => ({
-        key: `${slot.startTime}-${slot.endTime}`,
-        label: `${normalizeTime(slot.startTime)} - ${normalizeTime(slot.endTime)}`,
-        startTime: normalizeTime(slot.startTime),
-        endTime: normalizeTime(slot.endTime),
-      }));
+    return (availability.find((date) => date.date === selectedDate)?.slots ?? []).map((slot) => ({
+      ...slot,
+      key: `${slot.startTime}-${slot.endTime}`,
+      label: `${normalizeTime(slot.startTime)} - ${normalizeTime(slot.endTime)}`,
+      startTime: normalizeTime(slot.startTime),
+      endTime: normalizeTime(slot.endTime),
+    }));
   }, [availability, selectedDate]);
 
   const selectedSlot = availableSlots.find((slot) => slot.key === selectedSlotKey) ?? null;
-  const selectedTeacher = selectedOption?.teachers.find((teacher) => String(teacher.teacherUserId) === selectedTeacherId) ?? null;
-  const canSubmit = Boolean(selectedOption && topic && selectedDate && selectedSlot && message.trim());
+  const selectedConsultant = selectedOption?.consultants.find((consultant) => consultantKey(consultant) === selectedConsultantKey) ?? null;
+  const canSubmit = Boolean(selectedOption && selectedConsultant && topic && selectedDate && selectedSlot?.available && message.trim());
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -112,7 +128,8 @@ export function ParentConsultationRequestPage() {
         {
           academyId: selectedOption.academyId,
           studentProfileId: selectedOption.studentProfileId,
-          teacherUserId: selectedTeacherId ? Number(selectedTeacherId) : null,
+          consultantType: selectedConsultant!.consultantType,
+          teacherUserId: selectedConsultant!.teacherUserId ?? null,
           requestedDate: selectedDate,
           requestedStartTime: selectedSlot.startTime,
           requestedEndTime: selectedSlot.endTime,
@@ -152,7 +169,7 @@ export function ParentConsultationRequestPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <SummaryItem label="자녀" value={selectedOption.studentName} />
             <SummaryItem label="학원" value={selectedOption.academyName} />
-            <SummaryItem label="담당 선생님" value={selectedTeacher?.teacherName ?? "미지정"} />
+            <SummaryItem label="상담 담당" value={selectedConsultant?.consultantName ?? "미지정"} />
             <SummaryItem label="일정" value={`${selectedDate} ${selectedSlot.label}`} />
           </div>
         </div>
@@ -194,9 +211,11 @@ export function ParentConsultationRequestPage() {
                     value={selectedOptionKey}
                     onChange={(event) => {
                       const nextKey = event.target.value;
-                      const nextOption = options.find((option) => optionKey(option) === nextKey);
                       setSelectedOptionKey(nextKey);
-                      setSelectedTeacherId(nextOption?.teachers[0]?.teacherUserId ? String(nextOption.teachers[0].teacherUserId) : "");
+                      setAvailability([]);
+                      const nextOption = options.find((option) => optionKey(option) === nextKey);
+                      const firstAvailable = nextOption?.consultants.find((consultant) => consultant.available);
+                      setSelectedConsultantKey(firstAvailable ? consultantKey(firstAvailable) : "");
                     }}
                     className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   >
@@ -218,25 +237,37 @@ export function ParentConsultationRequestPage() {
                   </select>
                 </label>
               </div>
-              <div className="mt-4 rounded-3xl border border-blue-100 bg-blue-50/80 p-4">
-                <label className="block">
-                  <span className="text-sm font-bold text-blue-700">담당 선생님</span>
-                  <select
-                    value={selectedTeacherId}
-                    onChange={(event) => setSelectedTeacherId(event.target.value)}
-                    className="mt-2 h-11 w-full rounded-2xl border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  >
-                    <option value="">미지정</option>
-                    {selectedOption?.teachers.map((teacher) => (
-                      <option key={`${teacher.teacherUserId}-${teacher.classId}`} value={teacher.teacherUserId}>
-                        {teacher.teacherName} · {teacher.className}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <p className="mt-2 text-sm font-semibold text-slate-700">
-                  수업: {selectedTeacher?.className ?? "담당 수업을 선택하지 않았습니다."}
-                </p>
+              <div className="mt-4 border-t border-slate-200 pt-4">
+                <p className="text-sm font-bold text-slate-700">상담 담당</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {selectedOption?.consultants.map((consultant) => {
+                    const selected = selectedConsultantKey === consultantKey(consultant);
+                    return (
+                      <button
+                        key={consultantKey(consultant)}
+                        type="button"
+                        disabled={!consultant.available}
+                        onClick={() => setSelectedConsultantKey(consultantKey(consultant))}
+                        className={`p-4 text-left transition ${
+                          selected
+                            ? "border-2 border-blue-600 bg-white shadow-md"
+                            : consultant.available
+                              ? "border border-blue-100 bg-white hover:border-blue-300"
+                              : "cursor-not-allowed border border-slate-200 bg-slate-100 opacity-60"
+                        }`}
+                      >
+                        <span className="font-bold text-slate-950">{consultant.consultantName}</span>
+                        <span className="mt-2 block text-sm text-slate-600">{consultant.description}</span>
+                        <span className={`mt-3 inline-flex text-xs font-bold ${consultant.available ? "text-emerald-700" : "text-slate-500"}`}>
+                          {consultant.available ? "상담 가능" : "등록된 시간이 없습니다"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedOption?.consultants.every((consultant) => consultant.consultantType !== "TEACHER") ? (
+                  <p className="mt-3 text-sm font-semibold text-slate-500">수강 중인 수업의 담당 선생님이 없습니다.</p>
+                ) : null}
               </div>
             </ParentConsultationSection>
 
@@ -246,6 +277,7 @@ export function ParentConsultationRequestPage() {
                 selectedDate={selectedDate}
                 onMonthChange={setVisibleMonth}
                 onDateSelect={setSelectedDate}
+                availableDates={availability.filter((date) => date.slots.some((slot) => slot.available)).map((date) => date.date)}
               />
             </ParentConsultationSection>
           </div>
@@ -267,11 +299,18 @@ export function ParentConsultationRequestPage() {
 
             <ParentConsultationSection title="시간 선택">
               <p className="mb-3 text-sm font-semibold text-slate-600">
-                {selectedDate} 학원이 등록한 상담 가능 시간 중 선택합니다.
+                {selectedDate} {selectedConsultant?.consultantName ?? "담당자"} 상담 가능 시간입니다.
+              </p>
+              <p className="mb-3 text-xs font-semibold leading-5 text-slate-500">
+                선택한 상담 담당자의 가능한 시간만 표시됩니다. 이미 예약된 시간은 선택할 수 없습니다.
               </p>
               {isAvailabilityLoading ? (
                 <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-500">
                   상담 가능 시간을 불러오는 중입니다.
+                </p>
+              ) : !selectedConsultant ? (
+                <p className="rounded-2xl border border-dashed border-slate-300 bg-white/80 px-4 py-5 text-sm font-semibold text-slate-500">
+                  상담 담당자를 먼저 선택해 주세요.
                 </p>
               ) : availableSlots.length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-slate-300 bg-white/80 px-4 py-5 text-sm font-semibold text-slate-500">
@@ -280,7 +319,12 @@ export function ParentConsultationRequestPage() {
               ) : (
                 <ConsultationTimeSlots
                   slots={availableSlots.map((slot) => slot.label)}
-                  disabledSlots={[]}
+                  disabledSlots={availableSlots.filter((slot) => !slot.available).map((slot) => slot.label)}
+                  disabledReasons={Object.fromEntries(
+                    availableSlots
+                      .filter((slot) => !slot.available && slot.disabledReason)
+                      .map((slot) => [slot.label, slot.disabledReason ?? "선택할 수 없습니다."]),
+                  )}
                   selectedTime={availableSlots.find((slot) => slot.key === selectedSlotKey)?.label ?? ""}
                   onTimeSelect={(label) => setSelectedSlotKey(availableSlots.find((slot) => slot.label === label)?.key ?? "")}
                 />
@@ -322,6 +366,7 @@ export function ParentConsultationRequestPage() {
                     <p className="mt-1 text-sm font-semibold text-slate-600">
                       {request.requestedDate} {normalizeTime(request.requestedStartTime)} - {normalizeTime(request.requestedEndTime)}
                     </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">상담 담당: {request.consultantName}</p>
                   </div>
                   <ConsultationStatusBadge status={request.status} />
                 </div>
@@ -356,9 +401,10 @@ function optionKey(option: ParentConsultationOptionResponse) {
   return `${option.studentProfileId}:${option.academyId}`;
 }
 
-function dayOfWeekFromDateKey(dateKey: string) {
-  const day = new Date(`${dateKey}T00:00:00`).getDay();
-  return ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"][day];
+function consultantKey(consultant: ParentConsultationConsultantOption) {
+  return consultant.consultantType === "ACADEMY_ACCOUNT"
+    ? "ACADEMY_ACCOUNT"
+    : `TEACHER:${consultant.teacherUserId}`;
 }
 
 function normalizeTime(time: string) {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { ConsultationAvailabilitySettings } from "@/components/consultation/ConsultationAvailabilitySettings";
 import {
   acceptTeacherInvitation,
   ApiError,
@@ -197,6 +198,7 @@ export function TeacherConsultationsPage() {
   const { accessToken, user } = useAuth();
   const initialMonth = getCurrentMonthFilter();
   const [students, setStudents] = useState<TeacherConsultationStudentResponse[]>([]);
+  const [consultationAcademies, setConsultationAcademies] = useState<Array<{ academyId: number; academyName: string }>>([]);
   const [memos, setMemos] = useState<ConsultationMemo[]>([]);
   const [requests, setRequests] = useState<ConsultationRequestResponse[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState("ALL");
@@ -216,12 +218,19 @@ export function TeacherConsultationsPage() {
     setErrorMessage("");
     try {
       const studentId = selectedStudentId === "ALL" ? null : Number(selectedStudentId);
-      const [studentResponses, memoResponses] = await Promise.all([
+      const [studentResponses, memoResponses, invitationResponses] = await Promise.all([
         getTeacherConsultationStudents(accessToken),
         getTeacherConsultationMemos(accessToken, studentId),
+        getMyTeacherInvitations(accessToken),
       ]);
       setStudents(studentResponses);
       setMemos(memoResponses);
+      setConsultationAcademies(
+        invitationResponses
+          .filter((invitation) => invitation.status === "ACCEPTED")
+          .map((invitation) => ({ academyId: invitation.academyId, academyName: invitation.academyName }))
+          .filter((academy, index, all) => all.findIndex((item) => item.academyId === academy.academyId) === index),
+      );
       setRequests(await getTeacherConsultationRequests(accessToken, studentId));
     } catch (error) {
       setErrorMessage(getTeacherErrorMessage(error));
@@ -248,7 +257,6 @@ export function TeacherConsultationsPage() {
     }),
     [requests, selectedMonth, selectedYear],
   );
-
   const closeModal = () => {
     setIsCreateOpen(false);
     setEditingMemo(null);
@@ -330,13 +338,15 @@ export function TeacherConsultationsPage() {
           </div>
         </TeacherCard>
 
+        <ConsultationAvailabilitySettings mode="teacher" academies={consultationAcademies} />
+
         {errorMessage ? <AlertMessage tone="error">{errorMessage}</AlertMessage> : null}
 
         <TeacherCard>
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-slate-950">상담 요청</h2>
-              <p className="mt-1 text-sm text-slate-600">담당 학생의 학부모 상담 요청과 진행 상태를 확인합니다.</p>
+              <p className="mt-1 text-sm text-slate-600">나에게 배정된 진행 중 상담 요청을 확인합니다.</p>
             </div>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{filteredRequests.length}건</span>
           </div>
@@ -363,7 +373,7 @@ export function TeacherConsultationsPage() {
                     </div>
                     <div className="grid shrink-0 gap-2 text-sm text-slate-600 lg:min-w-48">
                       <span>보호자 {request.parentPhone || "연락처 없음"}</span>
-                      <span>지정 선생님 {request.teacherName ?? "미지정"}</span>
+                      <span>상담 담당 {request.consultantName}</span>
                     </div>
                   </div>
                   {request.status === "APPROVED" ? (
