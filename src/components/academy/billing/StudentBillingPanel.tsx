@@ -7,9 +7,9 @@ import {
   createStudentBillingInvoice,
   createStudentBillingPayment,
   ensureCurrentStudentBillingInvoice,
-  getStudentBillingInvoices,
+  getAcademyStudentBillingInvoices,
   getStudentBillingSetting,
-  getStudentBillingSummary,
+  getAcademyStudentBillingSummary,
   saveStudentBillingSetting,
   updateStudentBillingInvoice,
 } from "@/lib/api";
@@ -60,15 +60,19 @@ export function StudentBillingPanel({ studentProfileId, studentName, accessToken
       const today = new Date();
       const [nextSetting, nextSummary, nextInvoices] = await Promise.all([
         getStudentBillingSetting(studentProfileId, accessToken),
-        getStudentBillingSummary(studentProfileId, today.getFullYear(), today.getMonth() + 1, accessToken),
-        getStudentBillingInvoices(studentProfileId, accessToken, today.getFullYear()),
+        getAcademyStudentBillingSummary(studentProfileId, today.getFullYear(), today.getMonth() + 1, accessToken),
+        getAcademyStudentBillingInvoices(studentProfileId, accessToken, today.getFullYear()),
       ]);
 
       let resolvedSummary = nextSummary;
       let resolvedInvoices = nextInvoices;
+      const effectiveDueDay = Math.min(
+        nextSetting.dueDay,
+        new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate(),
+      );
       const shouldEnsure = allowEnsure
         && nextSetting.configured
-        && today.getDate() >= nextSetting.dueDay
+        && today.getDate() >= effectiveDueDay
         && !nextSummary.hasInvoice
         && ensureAttemptRef.current !== studentProfileId;
 
@@ -77,8 +81,8 @@ export function StudentBillingPanel({ studentProfileId, studentName, accessToken
         const ensured = await ensureCurrentStudentBillingInvoice(studentProfileId, accessToken);
         setNotice(ensured.message);
         [resolvedSummary, resolvedInvoices] = await Promise.all([
-          getStudentBillingSummary(studentProfileId, today.getFullYear(), today.getMonth() + 1, accessToken),
-          getStudentBillingInvoices(studentProfileId, accessToken, today.getFullYear()),
+          getAcademyStudentBillingSummary(studentProfileId, today.getFullYear(), today.getMonth() + 1, accessToken),
+          getAcademyStudentBillingInvoices(studentProfileId, accessToken, today.getFullYear()),
         ]);
       }
 
@@ -118,8 +122,8 @@ export function StudentBillingPanel({ studentProfileId, studentName, accessToken
     if (!accessToken) return;
     const monthlyTuition = Number(tuitionInput);
     const dueDay = Number(dueDayInput);
-    if (!Number.isFinite(monthlyTuition) || monthlyTuition < 0 || dueDay < 1 || dueDay > 28) {
-      setErrorMessage("월 수강료와 1~28일 사이의 수납 기준일을 확인해 주세요.");
+    if (!Number.isFinite(monthlyTuition) || monthlyTuition < 0 || dueDay < 1 || dueDay > 31) {
+      setErrorMessage("월 수강료와 1~31일 사이의 수납 기준일을 확인해 주세요.");
       return;
     }
 
@@ -229,7 +233,7 @@ export function StudentBillingPanel({ studentProfileId, studentName, accessToken
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h4 className="font-bold text-slate-950">수납 설정</h4>
-            <p className="mt-1 text-sm leading-6 text-slate-600">수납 기준일은 매월 1일부터 28일까지 설정할 수 있습니다.</p>
+            <p className="mt-1 text-sm leading-6 text-slate-600">수납 기준일은 매월 1일부터 31일까지 설정할 수 있습니다.</p>
           </div>
           {!isEditingSetting ? (
             <button type="button" onClick={() => setIsEditingSetting(true)} className={secondaryButtonClass}>
@@ -252,10 +256,13 @@ export function StudentBillingPanel({ studentProfileId, studentName, accessToken
               </BillingField>
               <BillingField label="수납 기준일">
                 <select value={dueDayInput} onChange={(event) => setDueDayInput(event.target.value)} className={inputClassName}>
-                  {Array.from({ length: 28 }, (_, index) => index + 1).map((day) => (
+                  {Array.from({ length: 31 }, (_, index) => index + 1).map((day) => (
                     <option key={day} value={day}>매월 {day}일</option>
                   ))}
                 </select>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                  29~31일은 해당 날짜가 없는 달에 마지막 날로 자동 처리됩니다.
+                </p>
               </BillingField>
             </div>
             <BillingField label="메모">
@@ -427,7 +434,7 @@ export function StudentBillingStatusSummary({
   const refresh = useCallback(() => {
     if (!accessToken) return;
     const today = new Date();
-    void getStudentBillingSummary(studentProfileId, today.getFullYear(), today.getMonth() + 1, accessToken)
+    void getAcademyStudentBillingSummary(studentProfileId, today.getFullYear(), today.getMonth() + 1, accessToken)
       .then((response) => setStatus(response.status))
       .catch(() => setStatus("NOT_ISSUED"));
   }, [accessToken, studentProfileId]);
@@ -575,6 +582,9 @@ function ManualInvoiceForm({
         </BillingField>
         <BillingField label="납부 기준일">
           <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className={inputClassName} />
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+            수동 청구는 선택한 날짜를 사용하며, 정규 청구의 29~31일 기준은 없는 달에 마지막 날로 처리됩니다.
+          </p>
         </BillingField>
         <div className="sm:col-span-2">
           <BillingField label="메모">

@@ -63,6 +63,8 @@ import type {
   TeacherConsultationStudentResponse,
 } from "@/types/consultation";
 import type {
+  BillingInquiryInvoice,
+  BillingInquirySummary,
   EnsureCurrentStudentBillingInvoiceResponse,
   StudentBillingInvoice,
   StudentBillingInvoiceCreateRequest,
@@ -1195,7 +1197,7 @@ export async function saveStudentBillingSetting(
   );
 }
 
-export async function getStudentBillingSummary(
+export async function getAcademyStudentBillingSummary(
   studentProfileId: number,
   year: number,
   month: number,
@@ -1211,7 +1213,7 @@ export async function getStudentBillingSummary(
   );
 }
 
-export async function getStudentBillingInvoices(
+export async function getAcademyStudentBillingInvoices(
   studentProfileId: number,
   accessToken: string,
   year?: number,
@@ -1223,6 +1225,52 @@ export async function getStudentBillingInvoices(
       method: "GET",
       headers: { Authorization: `Bearer ${accessToken}` },
     },
+  );
+}
+
+export async function getParentChildBillingSummary(
+  studentProfileId: number,
+  year: number,
+  month: number,
+  accessToken: string,
+): Promise<BillingInquirySummary> {
+  const params = new URLSearchParams({ year: String(year), month: String(month) });
+  return request<BillingInquirySummary>(
+    `/api/parent/children/${studentProfileId}/billing/summary?${params.toString()}`,
+    { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+}
+
+export async function getParentChildBillingInvoices(
+  studentProfileId: number,
+  year: number,
+  accessToken: string,
+): Promise<BillingInquiryInvoice[]> {
+  return request<BillingInquiryInvoice[]>(
+    `/api/parent/children/${studentProfileId}/billing/invoices?year=${year}`,
+    { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+}
+
+export async function getStudentBillingSummary(
+  year: number,
+  month: number,
+  accessToken: string,
+): Promise<BillingInquirySummary> {
+  const params = new URLSearchParams({ year: String(year), month: String(month) });
+  return request<BillingInquirySummary>(
+    `/api/student/billing/summary?${params.toString()}`,
+    { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+}
+
+export async function getStudentBillingInvoices(
+  year: number,
+  accessToken: string,
+): Promise<BillingInquiryInvoice[]> {
+  return request<BillingInquiryInvoice[]>(
+    `/api/student/billing/invoices?year=${year}`,
+    { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
   );
 }
 

@@ -45,6 +45,21 @@ export type StudentBillingInvoice = {
   memo: string | null;
 };
 
+export type BillingInquiryInvoice = StudentBillingInvoice & {
+  studentName: string;
+  academyId: number;
+  academyName: string;
+  billingTitle: string;
+};
+
+export type BillingInquirySummary = {
+  billingMonth: string;
+  amount: number;
+  paidAmount: number;
+  unpaidAmount: number;
+  unpaidCount: number;
+};
+
 export type StudentBillingInvoiceCreateRequest = {
   billingType: BillingType;
   billingPeriodStartMonth: string;

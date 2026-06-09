@@ -15,10 +15,12 @@ import {
   createStudentParentInvitation,
   getParentChildAcademies,
   getParentChildAttendanceRecords,
+  getParentChildBillingInvoices,
   getParentInvitations,
   getParentStudents,
   getStudentAcademies,
   getStudentAttendanceRecords,
+  getStudentBillingInvoices,
   getStudentInvitations,
   getStudentParents,
   rejectParentStudentInvitation,
@@ -35,6 +37,11 @@ import {
   type ParentChildAttendanceRecordResponse,
   type StudentAttendanceRecordResponse,
 } from "@/types/attendance";
+import {
+  billingStatusLabels,
+  billingStatusStyles,
+  type BillingInquiryInvoice,
+} from "@/types/billing";
 import type {
   ParentStudentInvitationResponse,
   AcademyStudentInvitationResponse,
@@ -43,7 +50,7 @@ import type {
 } from "@/types/auth";
 
 type FamilyRole = "PARENT" | "STUDENT";
-type PageMode = "dashboard" | "invitations" | "attendance" | "consultations";
+type PageMode = "dashboard" | "invitations" | "attendance" | "consultations" | "billing";
 type InvitationTab = "connected" | "received" | "sent";
 
 type PageConfig = {
@@ -51,10 +58,12 @@ type PageConfig = {
   homePath: string;
   invitationsPath: string;
   attendancePath: string;
+  billingPath: string;
   consultationPath: string;
   title: string;
   invitationTitle: string;
   attendanceTitle: string;
+  billingTitle: string;
   consultationTitle: string;
   sendTitle: string;
   managementTitle: string;
@@ -77,10 +86,12 @@ const configs: Record<FamilyRole, PageConfig> = {
     homePath: "/parent",
     invitationsPath: "/parent/invitations",
     attendancePath: "/parent/attendance",
+    billingPath: "/parent/billing",
     consultationPath: "/parent/consultations",
     title: "학부모 홈",
     invitationTitle: "자녀 연결",
     attendanceTitle: "자녀 출석 기록",
+    billingTitle: "자녀 청구 내역",
     consultationTitle: "자녀 상담 요청",
     sendTitle: "자녀에게 연결 요청 보내기",
     managementTitle: "자녀 연결",
@@ -101,10 +112,12 @@ const configs: Record<FamilyRole, PageConfig> = {
     homePath: "/student",
     invitationsPath: "/student/invitations",
     attendancePath: "/student/attendance",
+    billingPath: "/student/billing",
     consultationPath: "/student",
     title: "학생 홈",
     invitationTitle: "보호자 연결",
     attendanceTitle: "내 출석 기록",
+    billingTitle: "내 청구 내역",
     consultationTitle: "상담 요청",
     sendTitle: "보호자에게 연결 요청 보내기",
     managementTitle: "보호자 연결",
@@ -148,6 +161,7 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
 
         <ConnectionManagementCard config={config} />
         <AttendanceSummaryCard role={role} />
+        <BillingSummaryCard role={role} />
         {role === "PARENT" ? <ParentConsultationSummaryCard /> : null}
 
         <section className="grid gap-6 xl:grid-cols-2">
@@ -228,6 +242,26 @@ function AttendanceSummaryCard({ role }: { role: FamilyRole }) {
   );
 }
 
+function BillingSummaryCard({ role }: { role: FamilyRole }) {
+  const title = "청구 내역";
+  const description = role === "PARENT"
+    ? "자녀의 수강료 청구와 수납 상태를 확인합니다."
+    : "내 수강료 청구와 수납 상태를 확인합니다.";
+  const href = role === "PARENT" ? "/parent/billing" : "/student/billing";
+
+  return (
+    <FamilyCard>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-950">{title}</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+        </div>
+        <FamilyLinkButton href={href}>청구 내역 보기</FamilyLinkButton>
+      </div>
+    </FamilyCard>
+  );
+}
+
 function ParentConsultationSummaryCard() {
   return (
     <FamilyCard>
@@ -246,6 +280,187 @@ function ParentConsultationSummaryCard() {
       </div>
     </FamilyCard>
   );
+}
+
+export function ParentStudentBillingPage({ role }: { role: FamilyRole }) {
+  const config = configs[role];
+  const { accessToken } = useAuth();
+  const state = useParentStudentState(config);
+  const currentYear = new Date().getFullYear();
+  const billingChildOptions = useMemo(() => role === "PARENT"
+    ? state.relations
+      .filter((relation) => relation.status === "ACTIVE")
+      .map((relation) => ({
+        id: String(relation.studentUserId),
+        name: relation.studentName,
+        profileIds: (relation.studentProfiles ?? []).map((profile) => profile.studentProfileId),
+      }))
+      .filter((child) => child.profileIds.length > 0)
+    : [], [role, state.relations]);
+  const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [selectedAcademyId, setSelectedAcademyId] = useState("all");
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [invoices, setInvoices] = useState<BillingInquiryInvoice[]>([]);
+  const [isBillingLoading, setIsBillingLoading] = useState(role === "STUDENT");
+  const [billingErrorMessage, setBillingErrorMessage] = useState("");
+  const effectiveStudentId = selectedStudentId || billingChildOptions[0]?.id || "";
+  const selectedProfileIds = useMemo(
+    () => billingChildOptions.find((child) => child.id === effectiveStudentId)?.profileIds ?? [],
+    [billingChildOptions, effectiveStudentId],
+  );
+
+  useEffect(() => {
+    if (!accessToken || (role === "PARENT" && state.isLoading)) return;
+    if (role === "PARENT" && selectedProfileIds.length === 0) return;
+
+    let active = true;
+    void Promise.resolve().then(async () => {
+      if (!active) return;
+      setIsBillingLoading(true);
+      setBillingErrorMessage("");
+      try {
+        const response = role === "PARENT"
+          ? (await Promise.all(
+              selectedProfileIds.map((profileId) => getParentChildBillingInvoices(profileId, selectedYear, accessToken)),
+            )).flat()
+          : await getStudentBillingInvoices(selectedYear, accessToken);
+        if (active) setInvoices(response);
+      } catch (error) {
+        if (active) setBillingErrorMessage(getFamilyErrorMessage(error));
+      } finally {
+        if (active) setIsBillingLoading(false);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [accessToken, role, selectedProfileIds, selectedYear, state.isLoading]);
+
+  const academyOptions = useMemo(() => Array.from(
+    new Map(invoices.map((invoice) => [invoice.academyId, invoice.academyName])).entries(),
+  ).map(([id, name]) => ({ id: String(id), name })), [invoices]);
+  const filteredInvoices = useMemo(() => selectedAcademyId === "all"
+    ? invoices
+    : invoices.filter((invoice) => String(invoice.academyId) === selectedAcademyId), [invoices, selectedAcademyId]);
+  const activeInvoices = filteredInvoices.filter((invoice) => invoice.status !== "CANCELED");
+  const summary = {
+    amount: activeInvoices.reduce((total, invoice) => total + invoice.amount, 0),
+    paidAmount: activeInvoices.reduce((total, invoice) => total + invoice.paidAmount, 0),
+    unpaidAmount: activeInvoices.reduce((total, invoice) => total + invoice.unpaidAmount, 0),
+    unpaidCount: activeInvoices.filter((invoice) => invoice.unpaidAmount > 0).length,
+  };
+
+  return (
+    <FamilyShell config={config} mode="billing">
+      <div className="space-y-6">
+        {state.errorMessage ? <AlertMessage>{state.errorMessage}</AlertMessage> : null}
+        {billingErrorMessage ? <AlertMessage>{billingErrorMessage}</AlertMessage> : null}
+
+        <FamilyCard>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">청구 조회</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600">학원에서 생성한 청구와 수납 상태를 조회합니다.</p>
+            </div>
+            <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100">
+              조회 전용
+            </span>
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            {role === "PARENT" ? (
+              <BillingFilter label="자녀 선택">
+                <select value={effectiveStudentId} onChange={(event) => setSelectedStudentId(event.target.value)} className={familySelectClass}>
+                  {billingChildOptions.length === 0 ? <option value="">연결된 자녀 없음</option> : null}
+                  {billingChildOptions.map((child) => <option key={child.id} value={child.id}>{child.name}</option>)}
+                </select>
+              </BillingFilter>
+            ) : null}
+            <BillingFilter label="학원">
+              <select value={selectedAcademyId} onChange={(event) => setSelectedAcademyId(event.target.value)} className={familySelectClass}>
+                <option value="all">전체 학원</option>
+                {academyOptions.map((academy) => <option key={academy.id} value={academy.id}>{academy.name}</option>)}
+              </select>
+            </BillingFilter>
+            <BillingFilter label="년도">
+              <select value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))} className={familySelectClass}>
+                {Array.from({ length: 5 }, (_, index) => currentYear + 1 - index).map((year) => (
+                  <option key={year} value={year}>{year}년</option>
+                ))}
+              </select>
+            </BillingFilter>
+          </div>
+        </FamilyCard>
+
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <BillingSummaryValue label="총 청구 금액" value={formatBillingWon(summary.amount)} />
+          <BillingSummaryValue label="수납 완료 금액" value={formatBillingWon(summary.paidAmount)} />
+          <BillingSummaryValue label="미납 금액" value={formatBillingWon(summary.unpaidAmount)} emphasis />
+          <BillingSummaryValue label="미납 건수" value={`${summary.unpaidCount}건`} emphasis={summary.unpaidCount > 0} />
+        </section>
+
+        <FamilyCard>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">청구 내역</h2>
+              <p className="mt-1 text-sm text-slate-600">금액 수정이나 수납 처리는 학원에서만 할 수 있습니다.</p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{filteredInvoices.length}건</span>
+          </div>
+          {isBillingLoading ? (
+            <p className="mt-5 text-sm font-semibold text-slate-500">청구 내역을 불러오고 있습니다.</p>
+          ) : filteredInvoices.length === 0 ? (
+            <EmptyState title="조회된 청구 내역이 없습니다." description="학원에서 청구서를 생성하면 이곳에 표시됩니다." />
+          ) : (
+            <div className="mt-5 grid gap-4">
+              {filteredInvoices.map((invoice) => <BillingInquiryCard key={invoice.billingId} invoice={invoice} />)}
+            </div>
+          )}
+        </FamilyCard>
+      </div>
+    </FamilyShell>
+  );
+}
+
+function BillingInquiryCard({ invoice }: { invoice: BillingInquiryInvoice }) {
+  return (
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-5">
+        <div className="min-w-0">
+          <h3 className="break-words font-bold text-slate-950">{invoice.billingTitle}</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">{invoice.studentName} · {invoice.academyName}</p>
+        </div>
+        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${billingStatusStyles[invoice.status]}`}>
+          {billingStatusLabels[invoice.status]}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-4 px-4 py-4 sm:grid-cols-4 sm:px-5">
+        <BillingInvoiceValue label="청구 기간" value={formatBillingPeriod(invoice)} />
+        <BillingInvoiceValue label="납부 기준일" value={invoice.dueDate} />
+        <BillingInvoiceValue label="청구 금액" value={formatBillingWon(invoice.amount)} />
+        <BillingInvoiceValue label="수납 금액" value={formatBillingWon(invoice.paidAmount)} />
+        <BillingInvoiceValue label="미납 금액" value={formatBillingWon(invoice.unpaidAmount)} emphasis={invoice.unpaidAmount > 0} />
+        {invoice.memo ? <div className="col-span-2 sm:col-span-3"><BillingInvoiceValue label="메모" value={invoice.memo} /></div> : null}
+      </div>
+    </article>
+  );
+}
+
+function BillingFilter({ label, children }: { label: string; children: ReactNode }) {
+  return <label className="block"><span className="text-sm font-bold text-slate-700">{label}</span><div className="mt-2">{children}</div></label>;
+}
+
+function BillingSummaryValue({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
+  return (
+    <div className="rounded-3xl border border-white/80 bg-white/95 p-5 shadow-xl shadow-slate-200/60">
+      <p className="text-sm font-bold text-slate-500">{label}</p>
+      <p className={`mt-2 text-xl font-black ${emphasis ? "text-red-600" : "text-slate-950"}`}>{value}</p>
+    </div>
+  );
+}
+
+function BillingInvoiceValue({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
+  return <div className="min-w-0"><p className="text-xs font-bold text-slate-400">{label}</p><p className={`mt-1 break-words text-sm font-bold ${emphasis ? "text-red-600" : "text-slate-900"}`}>{value}</p></div>;
 }
 
 export function ParentStudentAttendancePage({ role }: { role: FamilyRole }) {
@@ -910,7 +1125,9 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
         ? config.invitationTitle
         : mode === "attendance"
           ? config.attendanceTitle
-          : config.consultationTitle;
+          : mode === "billing"
+            ? config.billingTitle
+            : config.consultationTitle;
 
   return (
     <RoleGuard allowedRole={config.role}>
@@ -1346,6 +1563,22 @@ function FamilyButton({ onClick, children }: { onClick: () => void; children: Re
       {children}
     </button>
   );
+}
+
+const familySelectClass = "h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100";
+
+function formatBillingWon(amount: number) {
+  return `${Math.max(amount, 0).toLocaleString("ko-KR")}원`;
+}
+
+function formatBillingPeriod(invoice: BillingInquiryInvoice) {
+  const formatMonth = (value: string) => {
+    const [year, month] = value.split("-");
+    return `${year}.${month}`;
+  };
+  const start = formatMonth(invoice.billingPeriodStartMonth);
+  const end = formatMonth(invoice.billingPeriodEndMonth);
+  return start === end ? start : `${start} ~ ${end}`;
 }
 
 function EmptyState({ title, description }: { title: string; description: string }) {
