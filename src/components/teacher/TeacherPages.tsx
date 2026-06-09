@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { ConsultationAvailabilitySettings } from "@/components/consultation/ConsultationAvailabilitySettings";
 import {
   acceptTeacherInvitation,
   ApiError,
@@ -197,6 +198,7 @@ export function TeacherConsultationsPage() {
   const { accessToken, user } = useAuth();
   const initialMonth = getCurrentMonthFilter();
   const [students, setStudents] = useState<TeacherConsultationStudentResponse[]>([]);
+  const [consultationAcademies, setConsultationAcademies] = useState<Array<{ academyId: number; academyName: string }>>([]);
   const [memos, setMemos] = useState<ConsultationMemo[]>([]);
   const [requests, setRequests] = useState<ConsultationRequestResponse[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState("ALL");
@@ -216,12 +218,19 @@ export function TeacherConsultationsPage() {
     setErrorMessage("");
     try {
       const studentId = selectedStudentId === "ALL" ? null : Number(selectedStudentId);
-      const [studentResponses, memoResponses] = await Promise.all([
+      const [studentResponses, memoResponses, invitationResponses] = await Promise.all([
         getTeacherConsultationStudents(accessToken),
         getTeacherConsultationMemos(accessToken, studentId),
+        getMyTeacherInvitations(accessToken),
       ]);
       setStudents(studentResponses);
       setMemos(memoResponses);
+      setConsultationAcademies(
+        invitationResponses
+          .filter((invitation) => invitation.status === "ACCEPTED")
+          .map((invitation) => ({ academyId: invitation.academyId, academyName: invitation.academyName }))
+          .filter((academy, index, all) => all.findIndex((item) => item.academyId === academy.academyId) === index),
+      );
       setRequests(await getTeacherConsultationRequests(accessToken, studentId));
     } catch (error) {
       setErrorMessage(getTeacherErrorMessage(error));
@@ -248,7 +257,6 @@ export function TeacherConsultationsPage() {
     }),
     [requests, selectedMonth, selectedYear],
   );
-
   const closeModal = () => {
     setIsCreateOpen(false);
     setEditingMemo(null);
@@ -329,6 +337,8 @@ export function TeacherConsultationsPage() {
             </TeacherSelect>
           </div>
         </TeacherCard>
+
+        <ConsultationAvailabilitySettings mode="teacher" academies={consultationAcademies} />
 
         {errorMessage ? <AlertMessage tone="error">{errorMessage}</AlertMessage> : null}
 

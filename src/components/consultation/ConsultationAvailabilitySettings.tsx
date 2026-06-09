@@ -5,10 +5,16 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import {
   ApiError,
   createAcademyConsultationAvailability,
+  createTeacherConsultationAvailability,
   deleteAcademyConsultationAvailability,
+  deleteTeacherConsultationAvailability,
   getAcademyConsultationAvailability,
+  getAcademyTeachers,
+  getTeacherConsultationAvailability,
   updateAcademyConsultationAvailability,
+  updateTeacherConsultationAvailability,
 } from "@/lib/api";
+import type { AcademyTeacherResponse } from "@/types/auth";
 import {
   consultationAvailabilityDays,
   consultationAvailabilityTypeLabels,
@@ -33,9 +39,20 @@ const initialForm: AvailabilityForm = {
   consultationType: "ALL",
 };
 
-export function ConsultationAvailabilitySettings() {
+type AcademyOption = { academyId: number; academyName: string };
+
+export function ConsultationAvailabilitySettings({
+  mode = "academy",
+  academies = [],
+}: {
+  mode?: "academy" | "teacher";
+  academies?: AcademyOption[];
+}) {
   const { accessToken } = useAuth();
   const [slots, setSlots] = useState<ConsultationAvailabilityResponse[]>([]);
+  const [teachers, setTeachers] = useState<AcademyTeacherResponse[]>([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState("");
+  const [selectedAcademyId, setSelectedAcademyId] = useState("");
   const [selectedDay, setSelectedDay] = useState<ConsultationAvailabilityDay>("MONDAY");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingSlot, setEditingSlot] = useState<ConsultationAvailabilityResponse | null>(null);
@@ -53,28 +70,49 @@ export function ConsultationAvailabilitySettings() {
     setIsLoading(true);
     setLoadErrorMessage("");
     try {
-      const response = await getAcademyConsultationAvailability(accessToken);
+      const response = mode === "academy"
+        ? await getAcademyConsultationAvailability(accessToken, selectedTeacherId ? Number(selectedTeacherId) : null)
+        : await getTeacherConsultationAvailability(accessToken);
       setSlots(response);
     } catch (error) {
       setLoadErrorMessage(error instanceof ApiError ? error.message : "상담 가능 시간을 불러오지 못했습니다.");
     } finally {
       setIsLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, mode, selectedTeacherId]);
 
   useEffect(() => {
     void Promise.resolve().then(() => loadAvailability());
   }, [loadAvailability]);
 
+  useEffect(() => {
+    if (!accessToken || mode !== "academy") return;
+    void getAcademyTeachers(accessToken).then((response) => {
+      const activeTeachers = response.filter((teacher) => teacher.memberStatus === "ACTIVE");
+      setTeachers(activeTeachers);
+      setSelectedTeacherId((current) => current || (activeTeachers[0] ? String(activeTeachers[0].teacherUserId) : ""));
+    });
+  }, [accessToken, mode]);
+
+  const effectiveAcademyId = selectedAcademyId || (academies[0] ? String(academies[0].academyId) : "");
+
+  const visibleSlots = useMemo(
+    () => slots.filter((slot) => {
+      if (mode === "academy") return !selectedTeacherId || slot.teacherUserId === Number(selectedTeacherId);
+      return !effectiveAcademyId || slot.academyId === Number(effectiveAcademyId);
+    }),
+    [effectiveAcademyId, mode, selectedTeacherId, slots],
+  );
+
   const slotsByDay = useMemo(
     () =>
       consultationAvailabilityDays.map((day) => ({
         ...day,
-        slots: slots
+        slots: visibleSlots
           .filter((slot) => slot.dayOfWeek === day.value)
           .sort((a, b) => normalizeTime(a.startTime).localeCompare(normalizeTime(b.startTime))),
       })),
-    [slots],
+    [visibleSlots],
   );
 
   const selectedDayLabel = consultationAvailabilityDays.find((day) => day.value === selectedDay)?.label ?? "요일";
@@ -105,20 +143,32 @@ export function ConsultationAvailabilitySettings() {
       return;
     }
 
-    const validationMessage = validateSlot(form, slots, editingSlot?.availabilityId);
+    const validationMessage = validateSlot(form, visibleSlots, editingSlot?.availabilityId);
     if (validationMessage) {
       setErrorMessage(validationMessage);
       return;
     }
 
-    const payload: ConsultationAvailabilityRequest = form;
+    const payload: ConsultationAvailabilityRequest = {
+      ...form,
+      academyId: mode === "teacher" ? Number(effectiveAcademyId) : null,
+      teacherUserId: mode === "academy" ? Number(selectedTeacherId) : null,
+    };
     setIsSaving(true);
     setErrorMessage("");
     try {
       if (editingSlot) {
-        await updateAcademyConsultationAvailability(editingSlot.availabilityId, payload, accessToken);
+        if (mode === "academy") {
+          await updateAcademyConsultationAvailability(editingSlot.availabilityId, payload, accessToken);
+        } else {
+          await updateTeacherConsultationAvailability(editingSlot.availabilityId, payload, accessToken);
+        }
       } else {
-        await createAcademyConsultationAvailability(payload, accessToken);
+        if (mode === "academy") {
+          await createAcademyConsultationAvailability(payload, accessToken);
+        } else {
+          await createTeacherConsultationAvailability(payload, accessToken);
+        }
       }
       setForm((current) => ({ ...initialForm, dayOfWeek: current.dayOfWeek }));
       setEditingSlot(null);
@@ -138,7 +188,11 @@ export function ConsultationAvailabilitySettings() {
 
     setLoadErrorMessage("");
     try {
-      await deleteAcademyConsultationAvailability(slot.availabilityId, accessToken);
+      if (mode === "academy") {
+        await deleteAcademyConsultationAvailability(slot.availabilityId, accessToken);
+      } else {
+        await deleteTeacherConsultationAvailability(slot.availabilityId, accessToken);
+      }
       await loadAvailability();
     } catch (error) {
       setLoadErrorMessage(error instanceof ApiError ? error.message : "상담 가능 시간을 비활성화하지 못했습니다.");
@@ -149,14 +203,17 @@ export function ConsultationAvailabilitySettings() {
     <section className="rounded-3xl border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-200/60">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-lg font-bold text-slate-950">상담 가능 시간</h2>
+          <h2 className="text-lg font-bold text-slate-950">{mode === "academy" ? "상담 가능 시간" : "내 상담 가능 시간"}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            신규 상담과 재원생 상담 요청을 받을 수 있는 시간을 설정합니다.
+            {mode === "academy"
+              ? "선생님별 재원생 상담 가능 시간을 설정합니다."
+              : "학부모가 상담 요청을 보낼 수 있는 시간을 설정합니다."}
           </p>
         </div>
         <button
           type="button"
           onClick={openCreateForm}
+          disabled={mode === "academy" ? !selectedTeacherId : !effectiveAcademyId}
           className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-bold text-white shadow-lg shadow-blue-200/70 transition hover:bg-blue-800"
         >
           시간 추가
@@ -171,6 +228,36 @@ export function ConsultationAvailabilitySettings() {
           </button>
         </div>
       ) : null}
+
+      <div className="mt-5 max-w-md">
+        {mode === "academy" ? (
+          <label className="block">
+            <span className="text-sm font-bold text-slate-700">선생님 선택</span>
+            <select
+              value={selectedTeacherId}
+              onChange={(event) => setSelectedTeacherId(event.target.value)}
+              className="mt-2 h-11 w-full border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900"
+            >
+              {teachers.map((teacher) => (
+                <option key={teacher.teacherUserId} value={teacher.teacherUserId}>{teacher.name}</option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label className="block">
+            <span className="text-sm font-bold text-slate-700">학원 선택</span>
+            <select
+              value={effectiveAcademyId}
+              onChange={(event) => setSelectedAcademyId(event.target.value)}
+              className="mt-2 h-11 w-full border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900"
+            >
+              {academies.map((academy) => (
+                <option key={academy.academyId} value={academy.academyId}>{academy.academyName}</option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
 
       <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
         {consultationAvailabilityDays.map((day) => (
@@ -233,7 +320,7 @@ export function ConsultationAvailabilitySettings() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-slate-950">{editingSlot ? "시간 수정" : "시간 추가"}</h2>
-                  <p className="mt-1 text-sm text-slate-600">{selectedDayLabel} 상담 가능 시간을 설정합니다.</p>
+                  <p className="mt-1 text-sm text-slate-600">{selectedDayLabel} 선생님별 상담 가능 시간을 설정합니다.</p>
                 </div>
                 <button
                   type="button"
@@ -324,6 +411,7 @@ function AvailabilitySlotCard({
             {normalizeTime(slot.startTime)} - {normalizeTime(slot.endTime)}
           </p>
           <p className="mt-1 text-sm font-semibold text-slate-600">{consultationAvailabilityTypeLabels[slot.consultationType]}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{slot.academyName} · {slot.teacherName}</p>
         </div>
         <div className="flex shrink-0 gap-2">
           <button

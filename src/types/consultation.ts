@@ -61,6 +61,8 @@ export type TeacherConsultationStudentResponse = {
 };
 
 export type ConsultationAvailabilityRequest = {
+  academyId?: number | null;
+  teacherUserId?: number | null;
   dayOfWeek: ConsultationAvailabilityDay;
   startTime: string;
   endTime: string;
@@ -69,6 +71,10 @@ export type ConsultationAvailabilityRequest = {
 
 export type ConsultationAvailabilityResponse = ConsultationAvailabilityRequest & {
   availabilityId: number;
+  academyId: number;
+  academyName: string;
+  teacherUserId: number;
+  teacherName: string;
   dayLabel: string;
   status: ConsultationAvailabilityStatus;
 };
@@ -84,14 +90,27 @@ export type ParentConsultationOptionResponse = {
 export type ParentConsultationTeacherOption = {
   teacherUserId: number;
   teacherName: string;
-  classId: number;
-  className: string;
+  classNames: string[];
+  available: boolean;
+};
+
+export type ConsultationTimeSlot = {
+  startTime: string;
+  endTime: string;
+  available: boolean;
+  disabledReason?: string | null;
+};
+
+export type ConsultationDateSlot = {
+  date: string;
+  dayOfWeek: ConsultationAvailabilityDay;
+  slots: ConsultationTimeSlot[];
 };
 
 export type ConsultationRequestCreateRequest = {
   academyId: number;
   studentProfileId: number;
-  teacherUserId?: number | null;
+  teacherUserId: number;
   requestedDate: string;
   requestedStartTime: string;
   requestedEndTime: string;

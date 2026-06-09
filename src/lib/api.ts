@@ -50,7 +50,7 @@ import type {
 import type {
   ConsultationAvailabilityRequest,
   ConsultationAvailabilityResponse,
-  ConsultationAvailabilityType,
+  ConsultationDateSlot,
   ConsultationMemo,
   ConsultationMemoCreateRequest,
   ConsultationMemoUpdateRequest,
@@ -803,8 +803,10 @@ export async function rejectStudentAcademyInvitation(
 
 export async function getAcademyConsultationAvailability(
   accessToken: string,
+  teacherUserId?: number | null,
 ): Promise<ConsultationAvailabilityResponse[]> {
-  return request<ConsultationAvailabilityResponse[]>("/api/academies/me/consultation-availability", {
+  const suffix = teacherUserId ? `?teacherUserId=${teacherUserId}` : "";
+  return request<ConsultationAvailabilityResponse[]>(`/api/academies/me/consultation-availability${suffix}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -857,14 +859,21 @@ export async function deleteAcademyConsultationAvailability(
   );
 }
 
-export async function getAcademyPublicConsultationAvailability(
+export async function getParentTeacherConsultationAvailability(
   academyId: number,
-  type: ConsultationAvailabilityType,
+  teacherUserId: number,
+  year: number,
+  month: number,
   accessToken: string,
-): Promise<ConsultationAvailabilityResponse[]> {
-  const params = new URLSearchParams({ type });
-  return request<ConsultationAvailabilityResponse[]>(
-    `/api/academies/${academyId}/consultation-availability?${params.toString()}`,
+): Promise<ConsultationDateSlot[]> {
+  const params = new URLSearchParams({
+    academyId: String(academyId),
+    teacherUserId: String(teacherUserId),
+    year: String(year),
+    month: String(month),
+  });
+  return request<ConsultationDateSlot[]>(
+    `/api/parent/consultation-availability?${params.toString()}`,
     {
       method: "GET",
       headers: {
@@ -872,6 +881,48 @@ export async function getAcademyPublicConsultationAvailability(
       },
     },
   );
+}
+
+export async function getTeacherConsultationAvailability(
+  accessToken: string,
+): Promise<ConsultationAvailabilityResponse[]> {
+  return request<ConsultationAvailabilityResponse[]>("/api/teacher/consultation-availability", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+export async function createTeacherConsultationAvailability(
+  payload: ConsultationAvailabilityRequest,
+  accessToken: string,
+): Promise<ConsultationAvailabilityResponse> {
+  return request<ConsultationAvailabilityResponse>("/api/teacher/consultation-availability", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateTeacherConsultationAvailability(
+  availabilityId: number,
+  payload: ConsultationAvailabilityRequest,
+  accessToken: string,
+): Promise<ConsultationAvailabilityResponse> {
+  return request<ConsultationAvailabilityResponse>(`/api/teacher/consultation-availability/${availabilityId}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteTeacherConsultationAvailability(
+  availabilityId: number,
+  accessToken: string,
+): Promise<ConsultationAvailabilityResponse> {
+  return request<ConsultationAvailabilityResponse>(`/api/teacher/consultation-availability/${availabilityId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 }
 
 export async function getParentConsultationOptions(
