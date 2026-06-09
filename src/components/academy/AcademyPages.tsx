@@ -72,6 +72,7 @@ import {
   StatusBadge,
 } from "./AcademyShell";
 import { AcademyStudentRegistrationModal } from "./AcademyStudentRegistrationModal";
+import { StudentBillingPanel, StudentBillingStatusSummary } from "./billing/StudentBillingPanel";
 export {
   AcademyScheduleDetailPage,
   AcademyScheduleNewPage,
@@ -251,11 +252,12 @@ export function AcademyStudentsPage() {
         {!isLoading && students.length > 0 ? (
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
             <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
-              <div className="hidden bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-500 lg:grid lg:grid-cols-[1fr_0.9fr_1fr_1fr]">
+              <div className="hidden bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-500 lg:grid lg:grid-cols-[0.9fr_0.9fr_1fr_1fr_0.8fr]">
                 <span>이름</span>
                 <span>학교/학년</span>
                 <span>학생 연락처</span>
                 <span>보호자 연락처</span>
+                <span>이번 달 수납</span>
               </div>
               {students.map((student) => {
                 const isSelected = selectedStudentId === student.id;
@@ -271,7 +273,7 @@ export function AcademyStudentsPage() {
                       }
                       setActiveTab("기본 정보");
                     }}
-                    className={`grid w-full gap-3 border-t px-4 py-4 text-left text-sm text-slate-700 transition sm:grid-cols-2 lg:grid-cols-[1fr_0.9fr_1fr_1fr] ${
+                    className={`grid w-full gap-3 border-t px-4 py-4 text-left text-sm text-slate-700 transition sm:grid-cols-2 lg:grid-cols-[0.9fr_0.9fr_1fr_1fr_0.8fr] ${
                       isSelected
                         ? "border-blue-100 bg-blue-50/70 ring-1 ring-inset ring-blue-200"
                         : "border-slate-200 hover:bg-slate-50"
@@ -284,6 +286,10 @@ export function AcademyStudentsPage() {
                       label="보호자 연락처"
                       value={student.guardianParentPhone || student.guardianPhone || "연락처 없음"}
                     />
+                    <span>
+                      <span className="mb-1 block text-xs font-bold text-slate-400 lg:hidden">이번 달 수납 상태</span>
+                      <StudentBillingStatusSummary studentProfileId={student.id} />
+                    </span>
                   </button>
                 );
               })}
@@ -531,12 +537,7 @@ function StudentDetailTabContent({
   }
 
   if (activeTab === "청구/수납") {
-    return (
-      <StudentDetailPlaceholder
-        title="청구/수납"
-        description="학생별 청구서와 수강료 납부 상태를 이곳에서 관리합니다."
-      />
-    );
+    return <StudentBillingPanel studentProfileId={student.id} />;
   }
 
   return <StudentAttendanceRecordsTab student={student} accessToken={accessToken} />;
@@ -1467,32 +1468,6 @@ function GuardianConnectionBadge({ student }: { student: AcademyStudentResponse 
     <span className="inline-flex w-fit rounded-full border border-slate-100 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-500">
       보호자 계정 미연결
     </span>
-  );
-}
-
-function StudentDetailPlaceholder({
-  title,
-  description,
-  actionLabel,
-}: {
-  title: string;
-  description: string;
-  actionLabel?: string;
-}) {
-  return (
-    <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 p-6">
-      <h3 className="text-lg font-bold text-slate-950">{title}</h3>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{description}</p>
-      {actionLabel ? (
-        <button
-          type="button"
-          disabled
-          className="mt-5 inline-flex h-11 cursor-not-allowed items-center justify-center rounded-2xl bg-slate-200 px-4 text-sm font-bold text-slate-500"
-        >
-          {actionLabel}
-        </button>
-      ) : null}
-    </div>
   );
 }
 
