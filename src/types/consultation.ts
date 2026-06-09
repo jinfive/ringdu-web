@@ -18,6 +18,7 @@ export type ConsultationAvailabilityType = "NEW_STUDENT" | "ENROLLED_STUDENT" | 
 export type ConsultationAvailabilityStatus = "ACTIVE" | "INACTIVE";
 
 export type ConsultationMemoWriterRole = "ACADEMY" | "TEACHER";
+export type ConsultationConsultantType = "ACADEMY_ACCOUNT" | "TEACHER";
 
 export type ConsultationMemo = {
   consultationMemoId: number;
@@ -62,6 +63,7 @@ export type TeacherConsultationStudentResponse = {
 
 export type ConsultationAvailabilityRequest = {
   academyId?: number | null;
+  consultantType?: ConsultationConsultantType;
   teacherUserId?: number | null;
   dayOfWeek: ConsultationAvailabilityDay;
   startTime: string;
@@ -73,8 +75,10 @@ export type ConsultationAvailabilityResponse = ConsultationAvailabilityRequest &
   availabilityId: number;
   academyId: number;
   academyName: string;
-  teacherUserId: number;
-  teacherName: string;
+  consultantType: ConsultationConsultantType;
+  consultantName: string;
+  teacherUserId?: number | null;
+  teacherName?: string | null;
   dayLabel: string;
   status: ConsultationAvailabilityStatus;
 };
@@ -84,7 +88,17 @@ export type ParentConsultationOptionResponse = {
   studentName: string;
   academyId: number;
   academyName: string;
+  consultants: ParentConsultationConsultantOption[];
   teachers: ParentConsultationTeacherOption[];
+};
+
+export type ParentConsultationConsultantOption = {
+  consultantType: ConsultationConsultantType;
+  teacherUserId?: number | null;
+  consultantName: string;
+  description: string;
+  classNames: string[];
+  available: boolean;
 };
 
 export type ParentConsultationTeacherOption = {
@@ -110,7 +124,8 @@ export type ConsultationDateSlot = {
 export type ConsultationRequestCreateRequest = {
   academyId: number;
   studentProfileId: number;
-  teacherUserId: number;
+  consultantType: ConsultationConsultantType;
+  teacherUserId?: number | null;
   requestedDate: string;
   requestedStartTime: string;
   requestedEndTime: string;
@@ -125,6 +140,8 @@ export type ConsultationRequestResponse = {
   studentProfileId: number;
   studentName: string;
   parentPhone?: string | null;
+  consultantType: ConsultationConsultantType;
+  consultantName: string;
   teacherUserId?: number | null;
   teacherName?: string | null;
   requestedDate: string;

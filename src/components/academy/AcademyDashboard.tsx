@@ -221,7 +221,7 @@ export function AcademyDashboard() {
                     {normalizeTime(consultation.requestedStartTime)} - {normalizeTime(consultation.requestedEndTime)}
                   </span>
                   <span className="font-bold text-slate-900">{consultation.studentName}</span>
-                  <span className="font-semibold text-slate-600">{consultation.teacherName ?? "담당 선생님 미지정"}</span>
+                  <span className="font-semibold text-slate-600">{consultation.consultantName}</span>
                   <ConsultationStatusBadge status={consultation.status} />
                 </Link>
               ))}

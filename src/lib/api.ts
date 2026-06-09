@@ -50,6 +50,7 @@ import type {
 import type {
   ConsultationAvailabilityRequest,
   ConsultationAvailabilityResponse,
+  ConsultationConsultantType,
   ConsultationDateSlot,
   ConsultationMemo,
   ConsultationMemoCreateRequest,
@@ -859,19 +860,21 @@ export async function deleteAcademyConsultationAvailability(
   );
 }
 
-export async function getParentTeacherConsultationAvailability(
+export async function getParentConsultantAvailability(
   academyId: number,
-  teacherUserId: number,
+  consultantType: ConsultationConsultantType,
+  teacherUserId: number | null,
   year: number,
   month: number,
   accessToken: string,
 ): Promise<ConsultationDateSlot[]> {
   const params = new URLSearchParams({
     academyId: String(academyId),
-    teacherUserId: String(teacherUserId),
+    consultantType,
     year: String(year),
     month: String(month),
   });
+  if (teacherUserId) params.set("teacherUserId", String(teacherUserId));
   return request<ConsultationDateSlot[]>(
     `/api/parent/consultation-availability?${params.toString()}`,
     {
@@ -968,6 +971,7 @@ export async function getAcademyConsultationRequests(
     to?: string | null;
     type?: ConsultationRequestType | null;
     studentProfileId?: number | null;
+    activeOnly?: boolean;
   } = {},
 ): Promise<ConsultationRequestResponse[]> {
   const params = new URLSearchParams();
@@ -976,6 +980,7 @@ export async function getAcademyConsultationRequests(
   if (query.to) params.set("to", query.to);
   if (query.type) params.set("type", query.type);
   if (query.studentProfileId) params.set("studentProfileId", String(query.studentProfileId));
+  if (query.activeOnly) params.set("activeOnly", "true");
   const suffix = params.toString() ? `?${params.toString()}` : "";
 
   return request<ConsultationRequestResponse[]>(`/api/academies/me/consultation-requests${suffix}`, {
@@ -1063,7 +1068,7 @@ export async function getTeacherConsultationRequests(
   if (studentProfileId) params.set("studentProfileId", String(studentProfileId));
   const suffix = params.toString() ? `?${params.toString()}` : "";
 
-  return request<ConsultationRequestResponse[]>(`/api/teacher/consultation-memos/requests${suffix}`, {
+  return request<ConsultationRequestResponse[]>(`/api/teacher/consultation-requests${suffix}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,

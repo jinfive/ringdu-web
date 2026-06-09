@@ -36,8 +36,6 @@ const statusFilters: Array<{ value: StatusFilter; label: string }> = [
   { value: "ALL", label: "전체" },
   { value: "REQUESTED", label: "요청됨" },
   { value: "APPROVED", label: "승인됨" },
-  { value: "COMPLETED", label: "완료됨" },
-  { value: "REJECTED", label: "거절됨" },
 ];
 
 export function AcademyConsultationCalendarPage() {
@@ -66,6 +64,7 @@ export function AcademyConsultationCalendarPage() {
         from: monthRange.from,
         to: monthRange.to,
         status: statusFilter === "ALL" ? null : statusFilter,
+        activeOnly: true,
       });
       setRequests(response);
     } catch (error) {
@@ -89,7 +88,6 @@ export function AcademyConsultationCalendarPage() {
       today: requests.filter((request) => request.requestedDate === toDateKey(new Date())).length,
       requested: requests.filter((request) => request.status === "REQUESTED").length,
       approved: requests.filter((request) => request.status === "APPROVED").length,
-      completed: requests.filter((request) => request.status === "COMPLETED").length,
     }),
     [requests],
   );
@@ -123,11 +121,10 @@ export function AcademyConsultationCalendarPage() {
       actions={<AcademyLinkButton href="/academy/students">학생 관리로 이동</AcademyLinkButton>}
     >
       <div className="space-y-6">
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-4 sm:grid-cols-3">
           <SummaryCard label="오늘 상담" value={`${summary.today}건`} />
           <SummaryCard label="요청 대기" value={`${summary.requested}건`} />
           <SummaryCard label="승인된 상담" value={`${summary.approved}건`} />
-          <SummaryCard label="완료 상담" value={`${summary.completed}건`} />
         </section>
 
         <AcademyCard>
@@ -273,7 +270,7 @@ export function ConsultationTimeline({
             </div>
             <div className="grid shrink-0 gap-2 text-sm text-slate-600 sm:min-w-52">
               <span className="font-bold text-slate-900">{request.studentName}</span>
-              <span>{request.teacherName ?? "담당 선생님 미지정"}</span>
+              <span>상담 담당: {request.consultantName}</span>
               <span>{request.parentPhone || "보호자 연락처 없음"}</span>
             </div>
           </div>
@@ -385,7 +382,7 @@ export function ConsultationDetailModal({
             <div className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
               <DetailField label="학생명" value={request.studentName} />
               <DetailField label="상담 날짜/시간" value={formatDateTime(request.requestedDate, request.requestedStartTime, request.requestedEndTime)} />
-              <DetailField label="담당 선생님" value={request.teacherName ?? "담당 선생님 미지정"} />
+              <DetailField label="상담 담당" value={request.consultantName} />
               <DetailField label="보호자 연락처" value={request.parentPhone || "연락처 없음"} />
               <DetailField label="학원" value={request.academyName} />
               <DetailField label="상태" value={request.statusLabel || consultationStatusLabels[request.status]} />

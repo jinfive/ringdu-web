@@ -346,7 +346,7 @@ export function TeacherConsultationsPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-slate-950">상담 요청</h2>
-              <p className="mt-1 text-sm text-slate-600">담당 학생의 학부모 상담 요청과 진행 상태를 확인합니다.</p>
+              <p className="mt-1 text-sm text-slate-600">나에게 배정된 진행 중 상담 요청을 확인합니다.</p>
             </div>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{filteredRequests.length}건</span>
           </div>
@@ -373,7 +373,7 @@ export function TeacherConsultationsPage() {
                     </div>
                     <div className="grid shrink-0 gap-2 text-sm text-slate-600 lg:min-w-48">
                       <span>보호자 {request.parentPhone || "연락처 없음"}</span>
-                      <span>지정 선생님 {request.teacherName ?? "미지정"}</span>
+                      <span>상담 담당 {request.consultantName}</span>
                     </div>
                   </div>
                   {request.status === "APPROVED" ? (

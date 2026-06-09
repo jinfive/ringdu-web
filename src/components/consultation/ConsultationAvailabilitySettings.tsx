@@ -71,7 +71,7 @@ export function ConsultationAvailabilitySettings({
     setLoadErrorMessage("");
     try {
       const response = mode === "academy"
-        ? await getAcademyConsultationAvailability(accessToken, selectedTeacherId ? Number(selectedTeacherId) : null)
+        ? await getAcademyConsultationAvailability(accessToken)
         : await getTeacherConsultationAvailability(accessToken);
       setSlots(response);
     } catch (error) {
@@ -79,7 +79,7 @@ export function ConsultationAvailabilitySettings({
     } finally {
       setIsLoading(false);
     }
-  }, [accessToken, mode, selectedTeacherId]);
+  }, [accessToken, mode]);
 
   useEffect(() => {
     void Promise.resolve().then(() => loadAvailability());
@@ -90,7 +90,7 @@ export function ConsultationAvailabilitySettings({
     void getAcademyTeachers(accessToken).then((response) => {
       const activeTeachers = response.filter((teacher) => teacher.memberStatus === "ACTIVE");
       setTeachers(activeTeachers);
-      setSelectedTeacherId((current) => current || (activeTeachers[0] ? String(activeTeachers[0].teacherUserId) : ""));
+      setSelectedTeacherId((current) => current || "ACADEMY_ACCOUNT");
     });
   }, [accessToken, mode]);
 
@@ -98,7 +98,11 @@ export function ConsultationAvailabilitySettings({
 
   const visibleSlots = useMemo(
     () => slots.filter((slot) => {
-      if (mode === "academy") return !selectedTeacherId || slot.teacherUserId === Number(selectedTeacherId);
+      if (mode === "academy") {
+        return selectedTeacherId === "ACADEMY_ACCOUNT"
+          ? slot.consultantType === "ACADEMY_ACCOUNT"
+          : slot.teacherUserId === Number(selectedTeacherId);
+      }
       return !effectiveAcademyId || slot.academyId === Number(effectiveAcademyId);
     }),
     [effectiveAcademyId, mode, selectedTeacherId, slots],
@@ -152,7 +156,10 @@ export function ConsultationAvailabilitySettings({
     const payload: ConsultationAvailabilityRequest = {
       ...form,
       academyId: mode === "teacher" ? Number(effectiveAcademyId) : null,
-      teacherUserId: mode === "academy" ? Number(selectedTeacherId) : null,
+      consultantType: mode === "teacher" || selectedTeacherId !== "ACADEMY_ACCOUNT" ? "TEACHER" : "ACADEMY_ACCOUNT",
+      teacherUserId: mode === "academy" && selectedTeacherId !== "ACADEMY_ACCOUNT"
+        ? Number(selectedTeacherId)
+        : null,
     };
     setIsSaving(true);
     setErrorMessage("");
@@ -206,7 +213,7 @@ export function ConsultationAvailabilitySettings({
           <h2 className="text-lg font-bold text-slate-950">{mode === "academy" ? "상담 가능 시간" : "내 상담 가능 시간"}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             {mode === "academy"
-              ? "선생님별 재원생 상담 가능 시간을 설정합니다."
+              ? "학원 상담과 선생님별 재원생 상담 가능 시간을 설정합니다."
               : "학부모가 상담 요청을 보낼 수 있는 시간을 설정합니다."}
           </p>
         </div>
@@ -232,12 +239,13 @@ export function ConsultationAvailabilitySettings({
       <div className="mt-5 max-w-md">
         {mode === "academy" ? (
           <label className="block">
-            <span className="text-sm font-bold text-slate-700">선생님 선택</span>
+            <span className="text-sm font-bold text-slate-700">상담 담당자</span>
             <select
               value={selectedTeacherId}
               onChange={(event) => setSelectedTeacherId(event.target.value)}
               className="mt-2 h-11 w-full border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900"
             >
+              <option value="ACADEMY_ACCOUNT">학원 상담</option>
               {teachers.map((teacher) => (
                 <option key={teacher.teacherUserId} value={teacher.teacherUserId}>{teacher.name}</option>
               ))}
@@ -411,7 +419,7 @@ function AvailabilitySlotCard({
             {normalizeTime(slot.startTime)} - {normalizeTime(slot.endTime)}
           </p>
           <p className="mt-1 text-sm font-semibold text-slate-600">{consultationAvailabilityTypeLabels[slot.consultationType]}</p>
-          <p className="mt-1 text-xs font-semibold text-slate-500">{slot.academyName} · {slot.teacherName}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{slot.academyName} · {slot.consultantName}</p>
         </div>
         <div className="flex shrink-0 gap-2">
           <button
