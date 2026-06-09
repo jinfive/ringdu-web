@@ -65,6 +65,7 @@ import type {
 import type {
   EnsureCurrentStudentBillingInvoiceResponse,
   StudentBillingInvoice,
+  StudentBillingInvoiceCreateRequest,
   StudentBillingInvoiceUpdateRequest,
   StudentBillingPaymentRequest,
   StudentBillingSetting,
@@ -1234,6 +1235,21 @@ export async function ensureCurrentStudentBillingInvoice(
     {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
+}
+
+export async function createStudentBillingInvoice(
+  studentProfileId: number,
+  payload: StudentBillingInvoiceCreateRequest,
+  accessToken: string,
+): Promise<StudentBillingInvoice> {
+  return request<StudentBillingInvoice>(
+    `/api/academies/me/students/${studentProfileId}/billing/invoices`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(payload),
     },
   );
 }

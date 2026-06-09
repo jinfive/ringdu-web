@@ -537,7 +537,7 @@ function StudentDetailTabContent({
   }
 
   if (activeTab === "청구/수납") {
-    return <StudentBillingPanel studentProfileId={student.id} accessToken={accessToken} />;
+    return <StudentBillingPanel studentProfileId={student.id} studentName={student.name} accessToken={accessToken} />;
   }
 
   return <StudentAttendanceRecordsTab student={student} accessToken={accessToken} />;

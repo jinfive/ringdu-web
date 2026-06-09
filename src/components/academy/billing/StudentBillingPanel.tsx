@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNod
 import {
   ApiError,
   cancelStudentBillingInvoice,
+  createStudentBillingInvoice,
   createStudentBillingPayment,
   ensureCurrentStudentBillingInvoice,
   getStudentBillingInvoices,
@@ -13,10 +14,13 @@ import {
   updateStudentBillingInvoice,
 } from "@/lib/api";
 import {
+  billingTypeLabels,
   billingStatusLabels,
   billingStatusStyles,
+  type BillingType,
   type BillingStatus,
   type StudentBillingInvoice,
+  type StudentBillingInvoiceCreateRequest,
   type StudentBillingSetting,
   type StudentBillingSummary,
 } from "@/types/billing";
@@ -25,16 +29,19 @@ const BILLING_EVENT = "ringdu:billing-updated";
 
 type StudentBillingPanelProps = {
   studentProfileId: number;
+  studentName: string;
   accessToken: string | null;
 };
 
-export function StudentBillingPanel({ studentProfileId, accessToken }: StudentBillingPanelProps) {
+export function StudentBillingPanel({ studentProfileId, studentName, accessToken }: StudentBillingPanelProps) {
   const [setting, setSetting] = useState<StudentBillingSetting | null>(null);
   const [summary, setSummary] = useState<StudentBillingSummary | null>(null);
   const [invoices, setInvoices] = useState<StudentBillingInvoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditingSetting, setIsEditingSetting] = useState(false);
+  const [isManagerOpen, setIsManagerOpen] = useState(false);
+  const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [tuitionInput, setTuitionInput] = useState("0");
   const [dueDayInput, setDueDayInput] = useState("1");
   const [settingMemo, setSettingMemo] = useState("");
@@ -176,10 +183,9 @@ export function StudentBillingPanel({ studentProfileId, accessToken }: StudentBi
     <div className="min-w-0 space-y-5">
       <header>
         <h3 className="text-lg font-bold text-slate-950">청구/수납 관리</h3>
-        <p className="mt-1 text-sm leading-6 text-slate-600">월 수강료와 청구별 수납 현황을 학생 단위로 관리합니다.</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">이번 달 청구와 수납 상태를 확인합니다.</p>
       </header>
 
-      {notice ? <Message tone="info">{notice}</Message> : null}
       {errorMessage ? <Message tone="error">{errorMessage}</Message> : null}
 
       <section aria-labelledby="billing-summary-title">
@@ -192,7 +198,34 @@ export function StudentBillingPanel({ studentProfileId, accessToken }: StudentBi
         </div>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+      <button type="button" onClick={() => setIsManagerOpen(true)} className={`${primaryButtonClass} w-full sm:w-auto`}>
+        청구/수납 관리
+      </button>
+
+      {isManagerOpen ? (
+        <ManagementModal
+          title={`${studentName} 청구/수납 관리`}
+          description="수납 설정, 청구 생성, 청구 내역과 수납 처리를 관리합니다."
+          onClose={() => setIsManagerOpen(false)}
+        >
+          <div className="space-y-5">
+            {notice ? <Message tone="info">{notice}</Message> : null}
+            {errorMessage ? <Message tone="error">{errorMessage}</Message> : null}
+
+            <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-slate-500">이번 달 상태</p>
+                  <div className="mt-2"><BillingStatusBadge status={currentStatus} /></div>
+                </div>
+                <div className="text-left sm:text-right">
+                  <p className="text-sm font-bold text-slate-500">미납 금액</p>
+                  <p className="mt-1 text-xl font-black text-red-600">{formatWon(summary?.unpaidAmount ?? 0)}</p>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h4 className="font-bold text-slate-950">수납 설정</h4>
@@ -249,31 +282,53 @@ export function StudentBillingPanel({ studentProfileId, accessToken }: StudentBi
             </div>
           </div>
         ) : null}
-      </section>
+            </section>
 
-      <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-        <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
-          <div>
-            <h4 className="font-bold text-amber-950">이번 달 청구</h4>
-            <p className="mt-1 text-sm leading-6 text-amber-800">
-              {!setting?.configured
-                ? "월 수강료와 수납 기준일을 먼저 설정해 주세요."
-                : summary?.hasInvoice
-                  ? "이미 이번 달 청구가 생성되어 있습니다."
-                  : canGenerate
-                    ? "수납 기준일이 도래해 이번 달 청구를 생성할 수 있습니다."
-                    : `매월 ${setting.dueDay}일 이후 현재 월 청구가 생성됩니다.`}
-            </p>
-          </div>
-          {canGenerate ? (
-            <button type="button" disabled={isSaving} onClick={generateCurrentInvoice} className={`${primaryButtonClass} w-full min-[420px]:w-auto`}>
-              이번 달 청구 생성
-            </button>
-          ) : null}
-        </div>
-      </section>
+            <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h4 className="font-bold text-amber-950">청구 생성</h4>
+                  <p className="mt-1 text-sm leading-6 text-amber-800">
+                    {!setting?.configured
+                      ? "정규 청구를 만들려면 월 수강료와 수납 기준일을 먼저 설정해 주세요."
+                      : summary?.hasInvoice
+                        ? "이번 달 정규 청구가 이미 생성되어 있습니다."
+                        : canGenerate
+                          ? "수납 기준일이 도래해 이번 달 정규 청구를 생성할 수 있습니다."
+                          : `매월 ${setting.dueDay}일 이후 현재 월 정규 청구를 생성할 수 있습니다.`}
+                  </p>
+                </div>
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                  <button type="button" disabled={isSaving || !canGenerate} onClick={generateCurrentInvoice} className={`${primaryButtonClass} flex-1 sm:flex-none`}>
+                    이번 달 청구 생성
+                  </button>
+                  <button type="button" onClick={() => setIsCreateFormOpen((open) => !open)} className={`${secondaryButtonClass} flex-1 sm:flex-none`}>
+                    청구 추가
+                  </button>
+                </div>
+              </div>
+              {isCreateFormOpen && accessToken ? (
+                <ManualInvoiceForm
+                  disabled={isSaving}
+                  onCancel={() => setIsCreateFormOpen(false)}
+                  onSave={async (payload) => {
+                    setIsSaving(true);
+                    setErrorMessage("");
+                    try {
+                      await createStudentBillingInvoice(studentProfileId, payload, accessToken);
+                      setIsCreateFormOpen(false);
+                      await refreshAfterMutation("청구를 생성했습니다.");
+                    } catch (error) {
+                      setErrorMessage(getErrorMessage(error));
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                />
+              ) : null}
+            </section>
 
-      <section>
+            <section>
         <div className="flex items-center justify-between gap-3">
           <h4 className="font-bold text-slate-950">청구 내역</h4>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{invoices.length}건</span>
@@ -292,7 +347,10 @@ export function StudentBillingPanel({ studentProfileId, accessToken }: StudentBi
             onCancel={cancelInvoice}
           />
         )}
-      </section>
+            </section>
+          </div>
+        </ManagementModal>
+      ) : null}
 
       {paymentInvoice && accessToken ? (
         <PaymentModal
@@ -406,7 +464,7 @@ function InvoiceList({
         <article key={invoice.billingId} className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-4">
             <div className="min-w-0">
-              <h5 className="font-bold text-slate-950">{formatBillingMonth(invoice.billingMonth)} 청구</h5>
+              <h5 className="font-bold text-slate-950">{formatBillingPeriod(invoice)} · {invoice.billingTypeLabel}</h5>
               {invoice.memo ? <p className="mt-1 break-words text-sm leading-6 text-slate-600">{invoice.memo}</p> : null}
             </div>
             <BillingStatusBadge status={invoice.status} />
@@ -451,6 +509,85 @@ function InvoiceList({
         </article>
       ))}
     </div>
+  );
+}
+
+function ManualInvoiceForm({
+  disabled,
+  onCancel,
+  onSave,
+}: {
+  disabled: boolean;
+  onCancel: () => void;
+  onSave: (payload: StudentBillingInvoiceCreateRequest) => Promise<void>;
+}) {
+  const currentMonth = toMonthKey(new Date());
+  const [billingType, setBillingType] = useState<BillingType>("REGULAR");
+  const [startMonth, setStartMonth] = useState(currentMonth);
+  const [endMonth, setEndMonth] = useState(currentMonth);
+  const [amount, setAmount] = useState("");
+  const [dueDate, setDueDate] = useState(toDateKey(new Date()));
+  const [memo, setMemo] = useState("");
+  const [error, setError] = useState("");
+
+  return (
+    <form
+      className="mt-4 grid gap-4 rounded-lg border border-amber-200 bg-white p-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const parsedAmount = Number(amount);
+        if (!startMonth || !endMonth || startMonth > endMonth) {
+          setError("청구 시작월은 종료월보다 늦을 수 없습니다.");
+          return;
+        }
+        if (!Number.isFinite(parsedAmount) || parsedAmount < 0 || !dueDate) {
+          setError("청구 금액과 납부 기준일을 확인해 주세요.");
+          return;
+        }
+        setError("");
+        void onSave({
+          billingType,
+          billingPeriodStartMonth: startMonth,
+          billingPeriodEndMonth: endMonth,
+          dueDate,
+          amount: parsedAmount,
+          memo: memo.trim() || null,
+        });
+      }}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <BillingField label="청구 유형">
+          <select value={billingType} onChange={(event) => setBillingType(event.target.value as BillingType)} className={inputClassName}>
+            {(Object.entries(billingTypeLabels) as [BillingType, string][]).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </BillingField>
+        <BillingField label="청구 금액">
+          <input inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value.replace(/[^0-9]/g, ""))} className={inputClassName} />
+          <p className="mt-1 text-xs font-semibold text-slate-500">{formatWon(Number(amount || 0))}</p>
+        </BillingField>
+        <BillingField label="시작월">
+          <input type="month" value={startMonth} onChange={(event) => setStartMonth(event.target.value)} className={inputClassName} />
+        </BillingField>
+        <BillingField label="종료월">
+          <input type="month" value={endMonth} onChange={(event) => setEndMonth(event.target.value)} className={inputClassName} />
+        </BillingField>
+        <BillingField label="납부 기준일">
+          <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className={inputClassName} />
+        </BillingField>
+        <div className="sm:col-span-2">
+          <BillingField label="메모">
+            <textarea rows={3} value={memo} onChange={(event) => setMemo(event.target.value)} className={`${inputClassName} h-auto py-3`} />
+          </BillingField>
+        </div>
+      </div>
+      {error ? <Message tone="error">{error}</Message> : null}
+      <div className="flex flex-wrap gap-2">
+        <button type="submit" disabled={disabled} className={`${primaryButtonClass} flex-1 sm:flex-none`}>생성</button>
+        <button type="button" disabled={disabled} onClick={onCancel} className={`${secondaryButtonClass} flex-1 sm:flex-none`}>취소</button>
+      </div>
+    </form>
   );
 }
 
@@ -576,6 +713,35 @@ function Modal({
   );
 }
 
+function ManagementModal({
+  title,
+  description,
+  onClose,
+  children,
+}: {
+  title: string;
+  description: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-950/45 sm:items-center sm:p-4">
+      <section className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-4xl sm:rounded-3xl">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
+          <div>
+            <h2 className="text-xl font-black text-slate-950">{title}</h2>
+            <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+          </div>
+          <button type="button" onClick={onClose} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-lg font-bold text-slate-600" aria-label={`${title} 닫기`}>
+            ×
+          </button>
+        </div>
+        <div className="p-4 sm:p-6">{children}</div>
+      </section>
+    </div>
+  );
+}
+
 function Summary({ label, value, emphasis = false }: { label: string; value: ReactNode; emphasis?: boolean }) {
   return (
     <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
@@ -626,6 +792,16 @@ const actionButtonClass = "h-10 rounded-lg border border-slate-200 bg-white px-3
 
 function toDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function toMonthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatBillingPeriod(invoice: StudentBillingInvoice) {
+  const start = formatBillingMonth(invoice.billingPeriodStartMonth);
+  const end = formatBillingMonth(invoice.billingPeriodEndMonth);
+  return start === end ? start : `${start} ~ ${end}`;
 }
 
 function formatBillingMonth(month: string) {

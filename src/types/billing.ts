@@ -1,5 +1,6 @@
 export type BillingStatus = "NOT_ISSUED" | "UNPAID" | "PARTIAL" | "PAID" | "CANCELED";
 export type InvoiceBillingStatus = Exclude<BillingStatus, "NOT_ISSUED">;
+export type BillingType = "REGULAR" | "PREPAID" | "MAKEUP" | "TEXTBOOK" | "ETC";
 
 export type StudentBillingSetting = {
   studentProfileId: number;
@@ -29,7 +30,11 @@ export type StudentBillingSummary = {
 export type StudentBillingInvoice = {
   billingId: number;
   studentProfileId: number;
+  billingType: BillingType;
+  billingTypeLabel: string;
   billingMonth: string;
+  billingPeriodStartMonth: string;
+  billingPeriodEndMonth: string;
   issuedDate: string;
   dueDate: string;
   amount: number;
@@ -38,6 +43,23 @@ export type StudentBillingInvoice = {
   status: InvoiceBillingStatus;
   statusLabel: string;
   memo: string | null;
+};
+
+export type StudentBillingInvoiceCreateRequest = {
+  billingType: BillingType;
+  billingPeriodStartMonth: string;
+  billingPeriodEndMonth: string;
+  dueDate: string;
+  amount: number;
+  memo?: string | null;
+};
+
+export const billingTypeLabels: Record<BillingType, string> = {
+  REGULAR: "정규 수강료",
+  PREPAID: "3개월 선납",
+  MAKEUP: "보강비",
+  TEXTBOOK: "교재비",
+  ETC: "기타",
 };
 
 export type EnsureCurrentStudentBillingInvoiceResponse = {
