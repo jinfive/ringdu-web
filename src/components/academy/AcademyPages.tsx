@@ -288,7 +288,7 @@ export function AcademyStudentsPage() {
                     />
                     <span>
                       <span className="mb-1 block text-xs font-bold text-slate-400 lg:hidden">이번 달 수납 상태</span>
-                      <StudentBillingStatusSummary studentProfileId={student.id} />
+                      <StudentBillingStatusSummary studentProfileId={student.id} accessToken={accessToken} />
                     </span>
                   </button>
                 );
@@ -537,7 +537,7 @@ function StudentDetailTabContent({
   }
 
   if (activeTab === "청구/수납") {
-    return <StudentBillingPanel studentProfileId={student.id} />;
+    return <StudentBillingPanel studentProfileId={student.id} accessToken={accessToken} />;
   }
 
   return <StudentAttendanceRecordsTab student={student} accessToken={accessToken} />;

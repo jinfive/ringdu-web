@@ -62,6 +62,15 @@ import type {
   ParentConsultationOptionResponse,
   TeacherConsultationStudentResponse,
 } from "@/types/consultation";
+import type {
+  EnsureCurrentStudentBillingInvoiceResponse,
+  StudentBillingInvoice,
+  StudentBillingInvoiceUpdateRequest,
+  StudentBillingPaymentRequest,
+  StudentBillingSetting,
+  StudentBillingSettingRequest,
+  StudentBillingSummary,
+} from "@/types/billing";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
 
@@ -1155,6 +1164,124 @@ export async function updateAcademyConsultationMemo(
     },
     body: JSON.stringify(payload),
   });
+}
+
+export async function getStudentBillingSetting(
+  studentProfileId: number,
+  accessToken: string,
+): Promise<StudentBillingSetting> {
+  return request<StudentBillingSetting>(
+    `/api/academies/me/students/${studentProfileId}/billing/setting`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
+}
+
+export async function saveStudentBillingSetting(
+  studentProfileId: number,
+  payload: StudentBillingSettingRequest,
+  accessToken: string,
+): Promise<StudentBillingSetting> {
+  return request<StudentBillingSetting>(
+    `/api/academies/me/students/${studentProfileId}/billing/setting`,
+    {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function getStudentBillingSummary(
+  studentProfileId: number,
+  year: number,
+  month: number,
+  accessToken: string,
+): Promise<StudentBillingSummary> {
+  const params = new URLSearchParams({ year: String(year), month: String(month) });
+  return request<StudentBillingSummary>(
+    `/api/academies/me/students/${studentProfileId}/billing/summary?${params.toString()}`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
+}
+
+export async function getStudentBillingInvoices(
+  studentProfileId: number,
+  accessToken: string,
+  year?: number,
+): Promise<StudentBillingInvoice[]> {
+  const query = year ? `?year=${year}` : "";
+  return request<StudentBillingInvoice[]>(
+    `/api/academies/me/students/${studentProfileId}/billing/invoices${query}`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
+}
+
+export async function ensureCurrentStudentBillingInvoice(
+  studentProfileId: number,
+  accessToken: string,
+): Promise<EnsureCurrentStudentBillingInvoiceResponse> {
+  return request<EnsureCurrentStudentBillingInvoiceResponse>(
+    `/api/academies/me/students/${studentProfileId}/billing/invoices/ensure-current`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
+}
+
+export async function updateStudentBillingInvoice(
+  studentProfileId: number,
+  billingId: number,
+  payload: StudentBillingInvoiceUpdateRequest,
+  accessToken: string,
+): Promise<StudentBillingInvoice> {
+  return request<StudentBillingInvoice>(
+    `/api/academies/me/students/${studentProfileId}/billing/invoices/${billingId}`,
+    {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function createStudentBillingPayment(
+  studentProfileId: number,
+  billingId: number,
+  payload: StudentBillingPaymentRequest,
+  accessToken: string,
+): Promise<StudentBillingInvoice> {
+  return request<StudentBillingInvoice>(
+    `/api/academies/me/students/${studentProfileId}/billing/invoices/${billingId}/payments`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function cancelStudentBillingInvoice(
+  studentProfileId: number,
+  billingId: number,
+  accessToken: string,
+): Promise<StudentBillingInvoice> {
+  return request<StudentBillingInvoice>(
+    `/api/academies/me/students/${studentProfileId}/billing/invoices/${billingId}/cancel`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
 }
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {

@@ -1,10 +1,29 @@
 export type BillingStatus = "NOT_ISSUED" | "UNPAID" | "PARTIAL" | "PAID" | "CANCELED";
+export type InvoiceBillingStatus = Exclude<BillingStatus, "NOT_ISSUED">;
 
 export type StudentBillingSetting = {
   studentProfileId: number;
   monthlyTuition: number;
   dueDay: number;
-  memo?: string;
+  memo: string | null;
+  configured: boolean;
+};
+
+export type StudentBillingSettingRequest = {
+  monthlyTuition: number;
+  dueDay: number;
+  memo?: string | null;
+};
+
+export type StudentBillingSummary = {
+  billingMonth: string;
+  status: BillingStatus;
+  statusLabel: string;
+  amount: number;
+  paidAmount: number;
+  unpaidAmount: number;
+  hasInvoice: boolean;
+  canGenerateCurrentMonth: boolean;
 };
 
 export type StudentBillingInvoice = {
@@ -12,18 +31,30 @@ export type StudentBillingInvoice = {
   studentProfileId: number;
   billingMonth: string;
   issuedDate: string;
-  dueDay: number;
   dueDate: string;
   amount: number;
   paidAmount: number;
-  status: Exclude<BillingStatus, "NOT_ISSUED">;
-  memo?: string;
+  unpaidAmount: number;
+  status: InvoiceBillingStatus;
+  statusLabel: string;
+  memo: string | null;
 };
 
-export type StudentBillingState = {
-  setting: StudentBillingSetting;
-  invoices: StudentBillingInvoice[];
-  nextBillingId: number;
+export type EnsureCurrentStudentBillingInvoiceResponse = {
+  generated: boolean;
+  message: string;
+  invoice: StudentBillingInvoice | null;
+};
+
+export type StudentBillingInvoiceUpdateRequest = {
+  amount: number;
+  memo?: string | null;
+};
+
+export type StudentBillingPaymentRequest = {
+  paymentAmount: number;
+  paymentDate: string;
+  memo?: string | null;
 };
 
 export const billingStatusLabels: Record<BillingStatus, string> = {
