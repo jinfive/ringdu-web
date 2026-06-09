@@ -301,6 +301,9 @@ export function ParentConsultationRequestPage() {
               <p className="mb-3 text-sm font-semibold text-slate-600">
                 {selectedDate} {selectedConsultant?.consultantName ?? "담당자"} 상담 가능 시간입니다.
               </p>
+              <p className="mb-3 text-xs font-semibold leading-5 text-slate-500">
+                선택한 상담 담당자의 가능한 시간만 표시됩니다. 이미 예약된 시간은 선택할 수 없습니다.
+              </p>
               {isAvailabilityLoading ? (
                 <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-500">
                   상담 가능 시간을 불러오는 중입니다.

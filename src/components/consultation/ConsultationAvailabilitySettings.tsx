@@ -108,22 +108,33 @@ export function ConsultationAvailabilitySettings({
     [effectiveAcademyId, mode, selectedTeacherId, slots],
   );
 
-  const slotsByDay = useMemo(
-    () =>
-      consultationAvailabilityDays.map((day) => ({
-        ...day,
-        slots: visibleSlots
-          .filter((slot) => slot.dayOfWeek === day.value)
-          .sort((a, b) => normalizeTime(a.startTime).localeCompare(normalizeTime(b.startTime))),
-      })),
-    [visibleSlots],
+  const slotCountByDay = useMemo(() => new Map(
+    consultationAvailabilityDays.map((day) => [
+      day.value,
+      visibleSlots.filter((slot) => slot.dayOfWeek === day.value).length,
+    ]),
+  ), [visibleSlots]);
+
+  const selectedDaySlots = useMemo(
+    () => visibleSlots
+      .filter((slot) => slot.dayOfWeek === selectedDay)
+      .sort((a, b) => normalizeTime(a.startTime).localeCompare(normalizeTime(b.startTime))),
+    [selectedDay, visibleSlots],
   );
 
   const selectedDayLabel = consultationAvailabilityDays.find((day) => day.value === selectedDay)?.label ?? "요일";
+  const selectedConsultantName = mode === "teacher"
+    ? "내 상담"
+    : selectedTeacherId === "ACADEMY_ACCOUNT"
+      ? "학원 상담"
+      : teachers.find((teacher) => String(teacher.teacherUserId) === selectedTeacherId)?.name ?? "담당자";
+  const activeDayCount = consultationAvailabilityDays.filter((day) =>
+    visibleSlots.some((slot) => slot.dayOfWeek === day.value && slot.status === "ACTIVE"),
+  ).length;
 
   const openCreateForm = () => {
     setEditingSlot(null);
-    setForm((current) => ({ ...initialForm, dayOfWeek: current.dayOfWeek || selectedDay }));
+    setForm({ ...initialForm, dayOfWeek: selectedDay });
     setErrorMessage("");
     setIsFormOpen(true);
   };
@@ -267,6 +278,12 @@ export function ConsultationAvailabilitySettings({
         )}
       </div>
 
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <AvailabilitySummary label="선택 담당자" value={selectedConsultantName} />
+        <AvailabilitySummary label="등록된 전체 슬롯" value={`${visibleSlots.length}개`} />
+        <AvailabilitySummary label="상담 가능 요일" value={`${activeDayCount}일`} />
+      </div>
+
       <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
         {consultationAvailabilityDays.map((day) => (
           <button
@@ -277,7 +294,7 @@ export function ConsultationAvailabilitySettings({
               selectedDay === day.value ? "bg-blue-700 text-white shadow-lg shadow-blue-100" : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700"
             }`}
           >
-            {day.shortLabel}
+            {day.shortLabel}({slotCountByDay.get(day.value) ?? 0})
           </button>
         ))}
       </div>
@@ -287,38 +304,32 @@ export function ConsultationAvailabilitySettings({
           상담 가능 시간을 불러오는 중입니다.
         </p>
       ) : (
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          {slotsByDay.map((day) => (
-            <section
-              key={day.value}
-              className={`rounded-3xl border p-4 ${
-                selectedDay === day.value ? "border-blue-200 bg-blue-50/50" : "border-slate-200 bg-slate-50/80"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="font-bold text-slate-950">{day.label}</h3>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
-                  {day.slots.length}개
-                </span>
-              </div>
-              <div className="mt-3 grid gap-2">
-                {day.slots.length === 0 ? (
-                  <p className="rounded-2xl border border-dashed border-slate-300 bg-white/70 px-4 py-5 text-sm font-semibold text-slate-500">
-                    등록된 상담 가능 시간이 없습니다.
-                  </p>
-                ) : null}
-                {day.slots.map((slot) => (
-                  <AvailabilitySlotCard
-                    key={slot.availabilityId}
-                    slot={slot}
-                    onEdit={openEditForm}
-                    onDeactivate={deactivateSlot}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+        <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
+            <div>
+              <h3 className="font-bold text-slate-950">{selectedDayLabel}</h3>
+              <p className="mt-1 text-xs font-semibold text-slate-500">{selectedConsultantName}의 등록 시간</p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+              {selectedDaySlots.length}개
+            </span>
+          </div>
+          <div className="grid max-h-[420px] gap-2 overflow-y-auto p-3">
+            {selectedDaySlots.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm font-semibold text-slate-500">
+                등록된 상담 가능 시간이 없습니다.
+              </p>
+            ) : null}
+            {selectedDaySlots.map((slot) => (
+              <AvailabilitySlotCard
+                key={slot.availabilityId}
+                slot={slot}
+                onEdit={openEditForm}
+                onDeactivate={deactivateSlot}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       {isFormOpen ? (
@@ -328,7 +339,7 @@ export function ConsultationAvailabilitySettings({
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-slate-950">{editingSlot ? "시간 수정" : "시간 추가"}</h2>
-                  <p className="mt-1 text-sm text-slate-600">{selectedDayLabel} 선생님별 상담 가능 시간을 설정합니다.</p>
+                  <p className="mt-1 text-sm text-slate-600">{selectedConsultantName} · {selectedDayLabel}</p>
                 </div>
                 <button
                   type="button"
@@ -346,6 +357,10 @@ export function ConsultationAvailabilitySettings({
                   {errorMessage}
                 </p>
               ) : null}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-bold text-slate-500">상담 담당자</p>
+                <p className="mt-1 text-sm font-bold text-slate-900">{selectedConsultantName}</p>
+              </div>
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">요일</span>
                 <select
@@ -402,24 +417,22 @@ function AvailabilitySlotCard({
   onEdit: (slot: ConsultationAvailabilityResponse) => void;
   onDeactivate: (slot: ConsultationAvailabilityResponse) => void;
 }) {
-  const dayLabel = consultationAvailabilityDays.find((day) => day.value === slot.dayOfWeek)?.label ?? slot.dayOfWeek;
   const active = slot.status === "ACTIVE";
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+    <article className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-bold text-slate-950">{dayLabel}</p>
+            <p className="text-base font-bold text-slate-950">
+              {normalizeTime(slot.startTime)} - {normalizeTime(slot.endTime)}
+            </p>
             <span className={`rounded-full px-3 py-1 text-xs font-bold ${active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
               {active ? "활성" : "비활성"}
             </span>
+            <span className="text-xs font-bold text-slate-500">{consultationAvailabilityTypeLabels[slot.consultationType]}</span>
           </div>
-          <p className="mt-2 text-lg font-bold text-slate-950">
-            {normalizeTime(slot.startTime)} - {normalizeTime(slot.endTime)}
-          </p>
-          <p className="mt-1 text-sm font-semibold text-slate-600">{consultationAvailabilityTypeLabels[slot.consultationType]}</p>
-          <p className="mt-1 text-xs font-semibold text-slate-500">{slot.academyName} · {slot.consultantName}</p>
+          <p className="mt-1 truncate text-xs font-semibold text-slate-500">{slot.academyName} · {slot.consultantName}</p>
         </div>
         <div className="flex shrink-0 gap-2">
           <button
@@ -440,6 +453,15 @@ function AvailabilitySlotCard({
         </div>
       </div>
     </article>
+  );
+}
+
+function AvailabilitySummary({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <p className="text-xs font-bold text-slate-500">{label}</p>
+      <p className="mt-1 truncate text-sm font-bold text-slate-950">{value}</p>
+    </div>
   );
 }
 
