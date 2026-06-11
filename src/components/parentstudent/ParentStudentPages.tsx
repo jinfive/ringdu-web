@@ -161,6 +161,7 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
 
         <ConnectionManagementCard config={config} />
         <AttendanceSummaryCard role={role} />
+        <HomeworkSummaryCard role={role} />
         <BillingSummaryCard role={role} />
         {role === "PARENT" ? <ParentConsultationSummaryCard /> : null}
 
@@ -237,6 +238,22 @@ function AttendanceSummaryCard({ role }: { role: FamilyRole }) {
           학원별, 기간별 출석 기록 화면으로 이동합니다.
         </p>
         <FamilyLinkButton href={href}>출석 기록 보기</FamilyLinkButton>
+      </div>
+    </FamilyCard>
+  );
+}
+
+function HomeworkSummaryCard({ role }: { role: FamilyRole }) {
+  return (
+    <FamilyCard>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-950">{role === "PARENT" ? "자녀 숙제" : "내 숙제"}</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            {role === "PARENT" ? "자녀의 숙제와 확인 상태를 확인합니다." : "수업별 숙제와 기한을 확인합니다."}
+          </p>
+        </div>
+        <span className="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500 ring-1 ring-slate-200">준비 중</span>
       </div>
     </FamilyCard>
   );
