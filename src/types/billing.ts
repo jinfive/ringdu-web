@@ -1,29 +1,97 @@
 export type BillingStatus = "NOT_ISSUED" | "UNPAID" | "PARTIAL" | "PAID" | "CANCELED";
+export type InvoiceBillingStatus = Exclude<BillingStatus, "NOT_ISSUED">;
+export type BillingType = "REGULAR" | "PREPAID" | "MAKEUP" | "TEXTBOOK" | "ETC";
 
 export type StudentBillingSetting = {
   studentProfileId: number;
   monthlyTuition: number;
   dueDay: number;
-  memo?: string;
+  memo: string | null;
+  configured: boolean;
+};
+
+export type StudentBillingSettingRequest = {
+  monthlyTuition: number;
+  dueDay: number;
+  memo?: string | null;
+};
+
+export type StudentBillingSummary = {
+  billingMonth: string;
+  status: BillingStatus;
+  statusLabel: string;
+  amount: number;
+  paidAmount: number;
+  unpaidAmount: number;
+  hasInvoice: boolean;
+  canGenerateCurrentMonth: boolean;
 };
 
 export type StudentBillingInvoice = {
   billingId: number;
   studentProfileId: number;
+  billingType: BillingType;
+  billingTypeLabel: string;
   billingMonth: string;
+  billingPeriodStartMonth: string;
+  billingPeriodEndMonth: string;
   issuedDate: string;
-  dueDay: number;
   dueDate: string;
   amount: number;
   paidAmount: number;
-  status: Exclude<BillingStatus, "NOT_ISSUED">;
-  memo?: string;
+  unpaidAmount: number;
+  status: InvoiceBillingStatus;
+  statusLabel: string;
+  memo: string | null;
 };
 
-export type StudentBillingState = {
-  setting: StudentBillingSetting;
-  invoices: StudentBillingInvoice[];
-  nextBillingId: number;
+export type BillingInquiryInvoice = StudentBillingInvoice & {
+  studentName: string;
+  academyId: number;
+  academyName: string;
+  billingTitle: string;
+};
+
+export type BillingInquirySummary = {
+  billingMonth: string;
+  amount: number;
+  paidAmount: number;
+  unpaidAmount: number;
+  unpaidCount: number;
+};
+
+export type StudentBillingInvoiceCreateRequest = {
+  billingType: BillingType;
+  billingPeriodStartMonth: string;
+  billingPeriodEndMonth: string;
+  dueDate: string;
+  amount: number;
+  memo?: string | null;
+};
+
+export const billingTypeLabels: Record<BillingType, string> = {
+  REGULAR: "정규 수강료",
+  PREPAID: "3개월 선납",
+  MAKEUP: "보강비",
+  TEXTBOOK: "교재비",
+  ETC: "기타",
+};
+
+export type EnsureCurrentStudentBillingInvoiceResponse = {
+  generated: boolean;
+  message: string;
+  invoice: StudentBillingInvoice | null;
+};
+
+export type StudentBillingInvoiceUpdateRequest = {
+  amount: number;
+  memo?: string | null;
+};
+
+export type StudentBillingPaymentRequest = {
+  paymentAmount: number;
+  paymentDate: string;
+  memo?: string | null;
 };
 
 export const billingStatusLabels: Record<BillingStatus, string> = {
