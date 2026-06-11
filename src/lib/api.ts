@@ -74,6 +74,15 @@ import type {
   StudentBillingSettingRequest,
   StudentBillingSummary,
 } from "@/types/billing";
+import type {
+  HomeworkCreateRequest,
+  HomeworkDetail,
+  HomeworkInquiryItem,
+  HomeworkInquiryQuery,
+  HomeworkStudentStatus,
+  HomeworkSummary,
+  TeacherHomeworkClass,
+} from "@/types/homework";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
 
@@ -1346,6 +1355,110 @@ export async function cancelStudentBillingInvoice(
       headers: { Authorization: `Bearer ${accessToken}` },
     },
   );
+}
+
+export async function getTeacherHomeworkClasses(accessToken: string): Promise<TeacherHomeworkClass[]> {
+  return request<TeacherHomeworkClass[]>("/api/teacher/classes", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+export async function getTeacherClassHomeworks(
+  classId: number,
+  accessToken: string,
+): Promise<HomeworkSummary[]> {
+  return request<HomeworkSummary[]>(`/api/teacher/classes/${classId}/homeworks`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+export async function createTeacherClassHomework(
+  classId: number,
+  payload: HomeworkCreateRequest,
+  accessToken: string,
+): Promise<HomeworkDetail> {
+  return request<HomeworkDetail>(`/api/teacher/classes/${classId}/homeworks`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getTeacherClassHomeworkDetail(
+  classId: number,
+  homeworkId: number,
+  accessToken: string,
+): Promise<HomeworkDetail> {
+  return request<HomeworkDetail>(`/api/teacher/classes/${classId}/homeworks/${homeworkId}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+export async function updateTeacherHomeworkStudentStatus(
+  homeworkStudentId: number,
+  status: HomeworkStudentStatus,
+  memo: string,
+  accessToken: string,
+): Promise<HomeworkDetail> {
+  return request<HomeworkDetail>(`/api/teacher/homework-students/${homeworkStudentId}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({ status, memo }),
+  });
+}
+
+export async function deleteTeacherClassHomework(
+  classId: number,
+  homeworkId: number,
+  accessToken: string,
+): Promise<void> {
+  await request<null>(`/api/teacher/classes/${classId}/homeworks/${homeworkId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+export async function getStudentHomeworks(
+  query: HomeworkInquiryQuery,
+  accessToken: string,
+): Promise<HomeworkInquiryItem[]> {
+  return request<HomeworkInquiryItem[]>(`/api/student/homeworks?${homeworkQuery(query)}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+export async function getParentChildHomeworks(
+  studentProfileId: number,
+  query: HomeworkInquiryQuery,
+  accessToken: string,
+): Promise<HomeworkInquiryItem[]> {
+  return request<HomeworkInquiryItem[]>(
+    `/api/parent/children/${studentProfileId}/homeworks?${homeworkQuery(query)}`,
+    { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+}
+
+export async function getAcademyStudentHomeworks(
+  studentProfileId: number,
+  query: HomeworkInquiryQuery,
+  accessToken: string,
+): Promise<HomeworkInquiryItem[]> {
+  return request<HomeworkInquiryItem[]>(
+    `/api/academies/me/students/${studentProfileId}/homeworks?${homeworkQuery(query)}`,
+    { method: "GET", headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+}
+
+function homeworkQuery(query: HomeworkInquiryQuery) {
+  const params = new URLSearchParams();
+  if (query.status && query.status !== "ALL") params.set("status", query.status);
+  if (query.from) params.set("from", query.from);
+  if (query.to) params.set("to", query.to);
+  return params.toString();
 }
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {
