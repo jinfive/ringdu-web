@@ -8,6 +8,7 @@ import {
   createTeacherInvitation,
   getAcademyStudentConsultationMemos,
   getAcademyStudentAttendanceRecords,
+  getAcademyStudentHomeworks,
   getAcademyConsultationRequests,
   getAcademyClasses,
   getAcademyStudent,
@@ -63,6 +64,12 @@ import type {
   TeacherInvitationStatus,
 } from "@/types/auth";
 import type { AcademyClassResponse } from "@/types/schedule";
+import {
+  homeworkStatusLabels,
+  homeworkStatusStyles,
+  type HomeworkInquiryItem,
+  type HomeworkStudentStatus,
+} from "@/types/homework";
 import {
   AcademyCard,
   AcademyLinkButton,
@@ -366,7 +373,7 @@ function StudentRegistrationButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-const studentDetailTabs = ["기본 정보", "수강 수업", "상담 메모", "청구/수납", "출석 기록"] as const;
+const studentDetailTabs = ["기본 정보", "수강 수업", "숙제 이력", "상담 메모", "청구/수납", "출석 기록"] as const;
 type StudentDetailTab = (typeof studentDetailTabs)[number];
 
 export function AcademyStudentDetailPage({ studentId }: { studentId: string }) {
@@ -536,11 +543,57 @@ function StudentDetailTabContent({
     return <StudentConsultationMemoTab student={student} accessToken={accessToken} />;
   }
 
+  if (activeTab === "숙제 이력") {
+    return <StudentHomeworkHistoryTab student={student} accessToken={accessToken} />;
+  }
+
   if (activeTab === "청구/수납") {
     return <StudentBillingPanel studentProfileId={student.id} studentName={student.name} accessToken={accessToken} />;
   }
 
   return <StudentAttendanceRecordsTab student={student} accessToken={accessToken} />;
+}
+
+function StudentHomeworkHistoryTab({
+  student,
+  accessToken,
+}: {
+  student: AcademyStudentResponse;
+  accessToken: string | null;
+}) {
+  const [items, setItems] = useState<HomeworkInquiryItem[]>([]);
+  const [statusFilter, setStatusFilter] = useState<HomeworkStudentStatus | "ALL">("ALL");
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const load = useCallback(() => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setErrorMessage("");
+    getAcademyStudentHomeworks(student.id, { status: statusFilter }, accessToken)
+      .then(setItems)
+      .catch((error) => setErrorMessage(getErrorMessage(error)))
+      .finally(() => setIsLoading(false));
+  }, [accessToken, statusFilter, student.id]);
+
+  useEffect(() => {
+    void Promise.resolve().then(load);
+  }, [load]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-slate-50/80 p-4 sm:flex-row sm:items-end sm:justify-between">
+        <div><h3 className="font-bold text-slate-950">숙제 이력</h3><p className="mt-1 text-sm text-slate-600">학생에게 배정된 숙제와 해옴 여부를 조회합니다.</p></div>
+        <label className="sm:w-48"><span className="text-sm font-bold text-slate-700">상태</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as HomeworkStudentStatus | "ALL")} className="mt-2 h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold"><option value="ALL">전체</option><option value="DONE">해옴</option><option value="NOT_DONE">안해옴</option></select></label>
+      </div>
+      {errorMessage ? <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{errorMessage}</p> : null}
+      {isLoading ? <p className="text-sm font-semibold text-slate-600">숙제 이력을 불러오고 있습니다.</p> : null}
+      {!isLoading && items.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50/80 px-5 py-8 text-center"><h3 className="font-bold text-slate-950">숙제 이력이 없습니다.</h3><p className="mt-2 text-sm text-slate-600">선생님이 숙제를 배정하면 이곳에 표시됩니다.</p></div> : null}
+      <div className="grid gap-3 lg:grid-cols-2">
+        {items.map((item) => <article key={item.homeworkStudentId} className="rounded-3xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold text-slate-950">{item.title}</h3><p className="mt-1 text-sm font-semibold text-slate-600">{item.className} · 기한 {item.dueDate}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${homeworkStatusStyles[item.status]}`}>{homeworkStatusLabels[item.status]}</span></div><p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">{item.content}</p>{item.memo ? <p className="mt-3 text-sm font-semibold text-slate-500">메모: {item.memo}</p> : null}</article>)}
+      </div>
+    </div>
+  );
 }
 
 function StudentDetailBasicTab({ student }: { student: AcademyStudentResponse }) {

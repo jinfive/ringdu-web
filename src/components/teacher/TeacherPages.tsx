@@ -44,10 +44,11 @@ import {
 const teacherMenu = [
   { href: "/teacher", label: "선생님 홈" },
   { href: "/teacher/attendance", label: "출석 체크" },
+  { href: "/teacher/homework", label: "숙제 관리" },
   { href: "/teacher/invitations", label: "초대장" },
 ];
 
-const preparingMenus = ["내 수업", "출석 체크", "숙제 관리", "공지"];
+const preparingMenus = ["내 수업", "공지"];
 
 export function TeacherDashboardPage() {
   const { accessToken } = useAuth();
@@ -167,6 +168,16 @@ export function TeacherDashboardPage() {
             ) : null}
           </TeacherCard>
         </section>
+
+        <TeacherCard>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">숙제 관리</h2>
+              <p className="mt-1 text-sm text-slate-600">수업별 숙제를 등록하고 학생별 수행 여부를 확인합니다.</p>
+            </div>
+            <TeacherLinkButton href="/teacher/homework">숙제 관리</TeacherLinkButton>
+          </div>
+        </TeacherCard>
 
         <TeacherCard>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1054,7 +1065,7 @@ function TeacherConsultationMemoModal({
   );
 }
 
-function TeacherShell({ title, children }: { title: string; children: ReactNode }) {
+export function TeacherShell({ title, children }: { title: string; children: ReactNode }) {
   const { user, logout } = useAuth();
 
   return (

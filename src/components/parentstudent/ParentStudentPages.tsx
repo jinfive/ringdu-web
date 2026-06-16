@@ -16,11 +16,13 @@ import {
   getParentChildAcademies,
   getParentChildAttendanceRecords,
   getParentChildBillingInvoices,
+  getParentChildHomeworks,
   getParentInvitations,
   getParentStudents,
   getStudentAcademies,
   getStudentAttendanceRecords,
   getStudentBillingInvoices,
+  getStudentHomeworks,
   getStudentInvitations,
   getStudentParents,
   rejectParentStudentInvitation,
@@ -42,6 +44,12 @@ import {
   billingStatusStyles,
   type BillingInquiryInvoice,
 } from "@/types/billing";
+import {
+  homeworkStatusLabels,
+  homeworkStatusStyles,
+  type HomeworkInquiryItem,
+  type HomeworkStudentStatus,
+} from "@/types/homework";
 import type {
   ParentStudentInvitationResponse,
   AcademyStudentInvitationResponse,
@@ -50,7 +58,7 @@ import type {
 } from "@/types/auth";
 
 type FamilyRole = "PARENT" | "STUDENT";
-type PageMode = "dashboard" | "invitations" | "attendance" | "consultations" | "billing";
+type PageMode = "dashboard" | "invitations" | "attendance" | "consultations" | "billing" | "homework";
 type InvitationTab = "connected" | "received" | "sent";
 
 type PageConfig = {
@@ -59,11 +67,13 @@ type PageConfig = {
   invitationsPath: string;
   attendancePath: string;
   billingPath: string;
+  homeworkPath: string;
   consultationPath: string;
   title: string;
   invitationTitle: string;
   attendanceTitle: string;
   billingTitle: string;
+  homeworkTitle: string;
   consultationTitle: string;
   sendTitle: string;
   managementTitle: string;
@@ -87,11 +97,13 @@ const configs: Record<FamilyRole, PageConfig> = {
     invitationsPath: "/parent/invitations",
     attendancePath: "/parent/attendance",
     billingPath: "/parent/billing",
+    homeworkPath: "/parent/homework",
     consultationPath: "/parent/consultations",
     title: "학부모 홈",
     invitationTitle: "자녀 연결",
     attendanceTitle: "자녀 출석 기록",
     billingTitle: "자녀 청구 내역",
+    homeworkTitle: "자녀 숙제",
     consultationTitle: "자녀 상담 요청",
     sendTitle: "자녀에게 연결 요청 보내기",
     managementTitle: "자녀 연결",
@@ -113,11 +125,13 @@ const configs: Record<FamilyRole, PageConfig> = {
     invitationsPath: "/student/invitations",
     attendancePath: "/student/attendance",
     billingPath: "/student/billing",
+    homeworkPath: "/student/homework",
     consultationPath: "/student",
     title: "학생 홈",
     invitationTitle: "보호자 연결",
     attendanceTitle: "내 출석 기록",
     billingTitle: "내 청구 내역",
+    homeworkTitle: "내 숙제",
     consultationTitle: "상담 요청",
     sendTitle: "보호자에게 연결 요청 보내기",
     managementTitle: "보호자 연결",
@@ -161,6 +175,7 @@ export function ParentStudentDashboardPage({ role }: { role: FamilyRole }) {
 
         <ConnectionManagementCard config={config} />
         <AttendanceSummaryCard role={role} />
+        <HomeworkSummaryCard role={role} />
         <BillingSummaryCard role={role} />
         {role === "PARENT" ? <ParentConsultationSummaryCard /> : null}
 
@@ -240,6 +255,104 @@ function AttendanceSummaryCard({ role }: { role: FamilyRole }) {
       </div>
     </FamilyCard>
   );
+}
+
+function HomeworkSummaryCard({ role }: { role: FamilyRole }) {
+  const href = role === "PARENT" ? "/parent/homework" : "/student/homework";
+  return (
+    <FamilyCard>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-950">{role === "PARENT" ? "자녀 숙제" : "내 숙제"}</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            {role === "PARENT" ? "자녀의 숙제와 확인 상태를 확인합니다." : "수업별 숙제와 기한을 확인합니다."}
+          </p>
+        </div>
+        <FamilyLinkButton href={href}>숙제 보기</FamilyLinkButton>
+      </div>
+    </FamilyCard>
+  );
+}
+
+export function ParentStudentHomeworkPage({ role }: { role: FamilyRole }) {
+  const config = configs[role];
+  const { accessToken } = useAuth();
+  const state = useParentStudentState(config);
+  const childOptions = useMemo(() => role === "PARENT"
+    ? state.relations
+      .filter((relation) => relation.status === "ACTIVE")
+      .map((relation) => ({
+        id: String(relation.studentUserId),
+        name: relation.studentName,
+        profileIds: (relation.studentProfiles ?? []).map((profile) => profile.studentProfileId),
+      }))
+      .filter((child) => child.profileIds.length > 0)
+    : [], [role, state.relations]);
+  const [selectedChildId, setSelectedChildId] = useState("");
+  const [statusFilter, setStatusFilter] = useState<HomeworkStudentStatus | "ALL">("ALL");
+  const [items, setItems] = useState<HomeworkInquiryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const effectiveChildId = selectedChildId || childOptions[0]?.id || "";
+  const profileIds = useMemo(
+    () => childOptions.find((child) => child.id === effectiveChildId)?.profileIds ?? [],
+    [childOptions, effectiveChildId],
+  );
+
+  useEffect(() => {
+    if (!accessToken || role === "PARENT" && state.isLoading) return;
+    if (role === "PARENT" && profileIds.length === 0) {
+      void Promise.resolve().then(() => {
+        setItems([]);
+        setIsLoading(false);
+      });
+      return undefined;
+    }
+    let active = true;
+    void Promise.resolve().then(async () => {
+      setIsLoading(true);
+      setErrorMessage("");
+      try {
+        const query = { status: statusFilter };
+        const response = role === "PARENT"
+          ? (await Promise.all(profileIds.map((profileId) => getParentChildHomeworks(profileId, query, accessToken)))).flat()
+          : await getStudentHomeworks(query, accessToken);
+        if (active) setItems(response.sort((a, b) => b.dueDate.localeCompare(a.dueDate)));
+      } catch (error) {
+        if (active) setErrorMessage(getFamilyErrorMessage(error));
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    });
+    return () => { active = false; };
+  }, [accessToken, profileIds, role, state.isLoading, statusFilter]);
+
+  return (
+    <FamilyShell config={config} mode="homework">
+      <div className="space-y-6">
+        <section>
+          <h2 className="text-2xl font-black text-slate-950">{config.homeworkTitle}</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">수업별 숙제와 기한, 해옴 여부를 확인합니다.</p>
+        </section>
+        <FamilyCard>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {role === "PARENT" ? <label><span className="text-sm font-bold text-slate-700">자녀</span><select value={effectiveChildId} onChange={(event) => setSelectedChildId(event.target.value)} className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold"><option value="">자녀 선택</option>{childOptions.map((child) => <option key={child.id} value={child.id}>{child.name}</option>)}</select></label> : null}
+            <label><span className="text-sm font-bold text-slate-700">상태</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as HomeworkStudentStatus | "ALL")} className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold"><option value="ALL">전체</option><option value="DONE">해옴</option><option value="NOT_DONE">안해옴</option></select></label>
+          </div>
+        </FamilyCard>
+        {errorMessage ? <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{errorMessage}</p> : null}
+        {isLoading ? <FamilyCard><p className="text-sm font-semibold text-slate-600">숙제를 불러오고 있습니다.</p></FamilyCard> : null}
+        {!isLoading && items.length === 0 ? <FamilyCard><div className="py-8 text-center"><h3 className="font-bold text-slate-950">조회된 숙제가 없습니다.</h3><p className="mt-2 text-sm text-slate-600">선생님이 숙제를 등록하면 이곳에 표시됩니다.</p></div></FamilyCard> : null}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {items.map((item) => <HomeworkInquiryCard key={item.homeworkStudentId} item={item} showStudent={role === "PARENT"} />)}
+        </div>
+      </div>
+    </FamilyShell>
+  );
+}
+
+function HomeworkInquiryCard({ item, showStudent }: { item: HomeworkInquiryItem; showStudent: boolean }) {
+  return <FamilyCard><div className="flex flex-wrap items-start justify-between gap-3"><div>{showStudent ? <p className="text-xs font-bold text-blue-600">{item.studentName}</p> : null}<h3 className="mt-1 text-lg font-bold text-slate-950">{item.title}</h3><p className="mt-1 text-sm font-semibold text-slate-600">{item.className} · {item.academyName}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${homeworkStatusStyles[item.status]}`}>{homeworkStatusLabels[item.status]}</span></div><div className="mt-4 rounded-2xl bg-slate-50 p-4"><p className="text-xs font-bold text-slate-400">기한</p><p className="mt-1 font-bold text-slate-900">{item.dueDate}</p><p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">{item.content}</p>{item.memo ? <p className="mt-3 text-sm font-semibold text-slate-500">메모: {item.memo}</p> : null}</div></FamilyCard>;
 }
 
 function BillingSummaryCard({ role }: { role: FamilyRole }) {
@@ -1117,6 +1230,7 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
     { href: config.homePath, label: config.title },
     { href: config.invitationsPath, label: config.invitationTitle },
     { href: config.attendancePath, label: config.attendanceTitle },
+    { href: config.homeworkPath, label: config.homeworkTitle },
   ];
   const pageTitle =
     mode === "dashboard"
@@ -1125,7 +1239,9 @@ function FamilyShell({ config, mode, children }: { config: PageConfig; mode: Pag
         ? config.invitationTitle
         : mode === "attendance"
           ? config.attendanceTitle
-          : mode === "billing"
+          : mode === "homework"
+            ? config.homeworkTitle
+            : mode === "billing"
             ? config.billingTitle
             : config.consultationTitle;
 
