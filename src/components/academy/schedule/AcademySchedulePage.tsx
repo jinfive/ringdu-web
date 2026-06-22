@@ -26,6 +26,7 @@ import {
   getAcademyClassrooms,
   getAcademyTeachers,
   searchAcademyStudents,
+  updateAcademyClass,
   updateAcademyClassroom,
 } from "@/lib/api";
 import type { AcademyStudentResponse, AcademyTeacherResponse } from "@/types/auth";
@@ -47,7 +48,7 @@ const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60;
 
 type ClassForm = {
   name: string;
-  dayOfWeek: ScheduleDayOfWeek;
+  dayOfWeeks: ScheduleDayOfWeek[];
   startTime: string;
   endTime: string;
   classroomId: string;
@@ -55,8 +56,8 @@ type ClassForm = {
   memo: string;
 };
 
-type ClassDetailTab = "기본 정보" | "수강 학생" | "출석 관리" | "숙제 관리 준비 중";
-const classDetailTabs: ClassDetailTab[] = ["기본 정보", "수강 학생", "출석 관리", "숙제 관리 준비 중"];
+type ClassDetailTab = "기본 정보" | "수강 학생" | "출석 관리";
+const classDetailTabs: ClassDetailTab[] = ["기본 정보", "수강 학생", "출석 관리"];
 
 export function AcademySchedulePage() {
   const { accessToken, user } = useAuth();
@@ -100,7 +101,7 @@ export function AcademySchedulePage() {
     void Promise.resolve().then(loadSchedule);
   }, [loadSchedule]);
 
-  const selectedDayClasses = useMemo(() => classes.filter((item) => item.dayOfWeek === selectedDay), [classes, selectedDay]);
+  const selectedDayClasses = useMemo(() => classes.filter((item) => classHasDay(item, selectedDay)), [classes, selectedDay]);
 
   async function createRoomsFromCount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -127,7 +128,8 @@ export function AcademySchedulePage() {
 
     const payload: AcademyClassRequest = {
       name: form.name.trim(),
-      dayOfWeek: form.dayOfWeek,
+      dayOfWeek: form.dayOfWeeks[0] ?? "MONDAY",
+      dayOfWeeks: form.dayOfWeeks,
       classroomId: Number(form.classroomId),
       teacherUserId: form.teacherUserId ? Number(form.teacherUserId) : null,
       startTime: form.startTime,
@@ -136,7 +138,7 @@ export function AcademySchedulePage() {
     };
 
     await createAcademyClass(payload, accessToken);
-    setSelectedDay(form.dayOfWeek);
+    setSelectedDay(form.dayOfWeeks[0] ?? "MONDAY");
     setIsClassModalOpen(false);
     loadSchedule();
   }
@@ -506,7 +508,7 @@ function ClassCreateModal({
 }) {
   const [form, setForm] = useState<ClassForm>({
     name: "",
-    dayOfWeek: "MONDAY",
+    dayOfWeeks: ["MONDAY"],
     startTime: "16:00",
     endTime: "17:30",
     classroomId: classrooms[0]?.classroomId ? String(classrooms[0].classroomId) : "",
@@ -518,7 +520,7 @@ function ClassCreateModal({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!form.name.trim() || !form.classroomId) return;
+    if (!form.name.trim() || !form.classroomId || form.dayOfWeeks.length === 0) return;
 
     setIsSaving(true);
     setErrorMessage("");
@@ -540,13 +542,7 @@ function ClassCreateModal({
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="요일">
-            <select value={form.dayOfWeek} onChange={(event) => setForm({ ...form, dayOfWeek: event.target.value as ScheduleDayOfWeek })} className={inputClassName}>
-              {DAYS.map((day) => (
-                <option key={day.value} value={day.value}>
-                  {day.label}
-                </option>
-              ))}
-            </select>
+            <DayOfWeekSelector value={form.dayOfWeeks} onChange={(dayOfWeeks) => setForm({ ...form, dayOfWeeks })} />
           </Field>
           <Field label="강의실">
             <select value={form.classroomId} onChange={(event) => setForm({ ...form, classroomId: event.target.value })} className={inputClassName}>
@@ -595,6 +591,127 @@ function ClassCreateModal({
   );
 }
 
+function ClassEditModal({
+  scheduleClass,
+  classrooms,
+  teachers,
+  onSave,
+  onClose,
+}: {
+  scheduleClass: AcademyClassDetailResponse;
+  classrooms: Classroom[];
+  teachers: AcademyTeacherResponse[];
+  onSave: (form: ClassForm) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState<ClassForm>({
+    name: scheduleClass.name,
+    dayOfWeeks: getClassDays(scheduleClass),
+    startTime: scheduleClass.startTime,
+    endTime: scheduleClass.endTime,
+    classroomId: String(scheduleClass.classroomId),
+    teacherUserId: scheduleClass.teacherUserId ? String(scheduleClass.teacherUserId) : "",
+    memo: scheduleClass.memo ?? "",
+  });
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!form.name.trim() || !form.classroomId || form.dayOfWeeks.length === 0) return;
+
+    setIsSaving(true);
+    setErrorMessage("");
+    try {
+      await onSave(form);
+    } catch (error) {
+      setErrorMessage(getScheduleErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <ModalFrame title="수업 정보 수정" description="요일, 시간, 강의실, 담당 선생님을 수정합니다." onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        {errorMessage ? <p className="whitespace-pre-line rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{errorMessage}</p> : null}
+        <Field label="수업명">
+          <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required className={inputClassName} />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="요일">
+            <DayOfWeekSelector value={form.dayOfWeeks} onChange={(dayOfWeeks) => setForm({ ...form, dayOfWeeks })} />
+          </Field>
+          <Field label="강의실">
+            <select value={form.classroomId} onChange={(event) => setForm({ ...form, classroomId: event.target.value })} className={inputClassName}>
+              {classrooms.map((room) => (
+                <option key={room.classroomId} value={room.classroomId}>
+                  {room.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="시작 시간">
+            <input type="time" step={1800} value={form.startTime} onChange={(event) => setForm({ ...form, startTime: event.target.value })} className={inputClassName} />
+          </Field>
+          <Field label="종료 시간">
+            <input type="time" step={1800} value={form.endTime} onChange={(event) => setForm({ ...form, endTime: event.target.value })} className={inputClassName} />
+          </Field>
+          <Field label="담당 선생님">
+            <select value={form.teacherUserId} onChange={(event) => setForm({ ...form, teacherUserId: event.target.value })} className={inputClassName}>
+              <option value="">담당 선생님 미지정</option>
+              {teachers.map((teacher) => (
+                <option key={teacher.teacherUserId} value={teacher.teacherUserId}>
+                  {teacher.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <Field label="메모">
+          <textarea value={form.memo} onChange={(event) => setForm({ ...form, memo: event.target.value })} className={`${inputClassName} min-h-24 py-3`} />
+        </Field>
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onClose} className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+            취소
+          </button>
+          <button type="submit" disabled={isSaving || form.dayOfWeeks.length === 0} className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">
+            {isSaving ? "저장 중" : "저장"}
+          </button>
+        </div>
+      </form>
+    </ModalFrame>
+  );
+}
+
+function DayOfWeekSelector({ value, onChange }: { value: ScheduleDayOfWeek[]; onChange: (value: ScheduleDayOfWeek[]) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {DAYS.map((day) => {
+        const selected = value.includes(day.value);
+        return (
+          <button
+            key={day.value}
+            type="button"
+            onClick={() => {
+              const nextValue = selected ? value.filter((item) => item !== day.value) : [...value, day.value];
+              onChange(sortDays(nextValue));
+            }}
+            className={`h-10 min-w-11 rounded-2xl border px-3 text-sm font-black transition ${
+              selected
+                ? "border-blue-700 bg-blue-700 text-white shadow-lg shadow-blue-100"
+                : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+            }`}
+          >
+            {day.label}
+          </button>
+        );
+      })}
+      {value.length === 0 ? <p className="basis-full text-xs font-semibold text-red-600">요일을 하나 이상 선택해 주세요.</p> : null}
+    </div>
+  );
+}
+
 export function AcademyScheduleNewPage() {
   return (
     <AcademyShell title="시간표 생성" description="수업 생성은 시간표 관리 화면에서 모달로 진행합니다.">
@@ -611,9 +728,12 @@ export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
   const { accessToken, user } = useAuth();
   const isPendingApproval = user?.status === "PENDING_APPROVAL";
   const [scheduleClass, setScheduleClass] = useState<AcademyClassDetailResponse | null>(null);
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [teachers, setTeachers] = useState<AcademyTeacherResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [activeTab, setActiveTab] = useState<ClassDetailTab>("기본 정보");
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const loadClass = useCallback(() => {
     if (!accessToken || isPendingApproval) return;
@@ -626,9 +746,15 @@ export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
 
     setIsLoading(true);
     setErrorMessage("");
-    void getAcademyClass(numericClassId, accessToken)
-      .then((data) => {
+    void Promise.all([
+      getAcademyClass(numericClassId, accessToken),
+      getAcademyClassrooms(accessToken),
+      getAcademyTeachers(accessToken).catch(() => [] as AcademyTeacherResponse[]),
+    ])
+      .then(([data, classroomData, teacherData]) => {
         setScheduleClass(data);
+        setClassrooms(classroomData);
+        setTeachers(teacherData.filter((teacher) => teacher.memberStatus === "ACTIVE"));
       })
       .catch((error) => {
         setErrorMessage(getScheduleErrorMessage(error));
@@ -658,14 +784,27 @@ export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
           <>
             {activeTab === "기본 정보" ? (
               <AcademyCard>
-              <div className="grid gap-4 md:grid-cols-2">
-                <DetailItem label="수업명" value={scheduleClass.name} />
-                <DetailItem label="요일/시간" value={`${scheduleClass.dayLabel} ${scheduleClass.startTime} - ${scheduleClass.endTime}`} />
-                <DetailItem label="강의실" value={scheduleClass.classroomName} />
-                <DetailItem label="담당 선생님" value={scheduleClass.teacherName ?? "담당 선생님 미지정"} />
-                <DetailItem label="수강 학생 수" value={`${scheduleClass.studentCount}명`} />
-                <DetailItem label="메모" value={scheduleClass.memo || "메모 없음"} />
-              </div>
+                <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-950">수업 정보</h2>
+                    <p className="mt-1 text-sm text-slate-600">요일, 시간, 강의실, 담당 선생님을 확인합니다.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditOpen(true)}
+                    className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-700 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-200/70 transition hover:-translate-y-0.5 hover:bg-blue-800"
+                  >
+                    수업 정보 수정
+                  </button>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <DetailItem label="수업명" value={scheduleClass.name} />
+                  <DetailItem label="요일/시간" value={`${getDayLabels(scheduleClass).join(", ")} ${scheduleClass.startTime} - ${scheduleClass.endTime}`} />
+                  <DetailItem label="강의실" value={scheduleClass.classroomName} />
+                  <DetailItem label="담당 선생님" value={scheduleClass.teacherName ?? "담당 선생님 미지정"} />
+                  <DetailItem label="수강 학생 수" value={`${scheduleClass.studentCount}명`} />
+                  <DetailItem label="메모" value={scheduleClass.memo || "메모 없음"} />
+                </div>
               </AcademyCard>
             ) : null}
 
@@ -681,11 +820,32 @@ export function AcademyScheduleDetailPage({ classId }: { classId: string }) {
               <AcademyClassAttendancePanel scheduleClass={scheduleClass} accessToken={accessToken} />
             ) : null}
 
-            {activeTab === "숙제 관리 준비 중" ? (
-              <AcademyCard>
-                <h2 className="text-lg font-bold text-slate-950">{activeTab}</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">이번 작업에서는 실제 기능을 구현하지 않고 상세 화면 진입 구조만 유지합니다.</p>
-              </AcademyCard>
+            {isEditOpen ? (
+              <ClassEditModal
+                scheduleClass={scheduleClass}
+                classrooms={classrooms}
+                teachers={teachers}
+                onClose={() => setIsEditOpen(false)}
+                onSave={async (form) => {
+                  if (!accessToken) return;
+                  await updateAcademyClass(
+                    scheduleClass.classId,
+                    {
+                      name: form.name.trim(),
+                      dayOfWeek: form.dayOfWeeks[0] ?? "MONDAY",
+                      dayOfWeeks: form.dayOfWeeks,
+                      classroomId: Number(form.classroomId),
+                      teacherUserId: form.teacherUserId ? Number(form.teacherUserId) : null,
+                      startTime: form.startTime,
+                      endTime: form.endTime,
+                      memo: form.memo.trim() || null,
+                    },
+                    accessToken,
+                  );
+                  setIsEditOpen(false);
+                  loadClass();
+                }}
+              />
             ) : null}
           </>
         ) : null}
@@ -803,7 +963,7 @@ function AcademyClassAttendancePanel({
           <div>
             <p className="text-sm font-bold text-slate-950">{sessionDetail.attendanceDate}</p>
             <p className="mt-1 text-sm text-slate-600">
-              {scheduleClass.name} · {scheduleClass.dayLabel} {scheduleClass.startTime} - {scheduleClass.endTime}
+              {scheduleClass.name} · {getDayLabels(scheduleClass).join(", ")} {scheduleClass.startTime} - {scheduleClass.endTime}
             </p>
           </div>
           <p className="text-sm font-semibold text-slate-500">{sessionDetail.status === "COMPLETED" ? "처리 완료" : "출석 처리 대기"}</p>
@@ -1173,6 +1333,25 @@ function DetailItem({ label, value }: { label: string; value: string }) {
 
 function getDayLabel(day: ScheduleDayOfWeek) {
   return DAYS.find((item) => item.value === day)?.label ?? day;
+}
+
+function getClassDays(scheduleClass: Pick<AcademyClassDetailResponse, "dayOfWeek" | "dayOfWeeks">): ScheduleDayOfWeek[] {
+  const days = scheduleClass.dayOfWeeks?.length ? scheduleClass.dayOfWeeks : [scheduleClass.dayOfWeek];
+  return sortDays(days);
+}
+
+function getDayLabels(scheduleClass: Pick<AcademyClassDetailResponse, "dayLabel" | "dayLabels" | "dayOfWeek" | "dayOfWeeks">) {
+  if (scheduleClass.dayLabels?.length) return scheduleClass.dayLabels;
+  return getClassDays(scheduleClass).map(getDayLabel);
+}
+
+function classHasDay(scheduleClass: Pick<ScheduleClass, "dayOfWeek" | "dayOfWeeks">, day: ScheduleDayOfWeek) {
+  return (scheduleClass.dayOfWeeks?.length ? scheduleClass.dayOfWeeks : [scheduleClass.dayOfWeek]).includes(day);
+}
+
+function sortDays(days: ScheduleDayOfWeek[]) {
+  const order = new Map(DAYS.map((day, index) => [day.value, index]));
+  return Array.from(new Set(days)).sort((left, right) => (order.get(left) ?? 0) - (order.get(right) ?? 0));
 }
 
 function timeToMinutes(time: string) {

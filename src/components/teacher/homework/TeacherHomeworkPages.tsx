@@ -91,7 +91,7 @@ export function TeacherHomeworkPage() {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <h3 className="text-lg font-bold text-slate-950">{homeworkClass.className}</h3>
-                    <p className="mt-2 text-sm font-semibold text-slate-600">{homeworkClass.dayLabel} {homeworkClass.startTime} - {homeworkClass.endTime}</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-600">{getClassDayText(homeworkClass)} {homeworkClass.startTime} - {homeworkClass.endTime}</p>
                     <p className="mt-1 text-sm text-slate-500">{homeworkClass.classroomName} · 수강 학생 {homeworkClass.studentCount}명</p>
                   </div>
                   <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ${classNotDoneCount > 0 ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700"}`}>
@@ -235,12 +235,16 @@ export function TeacherClassHomeworkPage({ classId }: { classId: string }) {
               <div>
                 <p className="text-xs font-bold uppercase text-blue-600">HOMEWORK</p>
                 <h2 className="mt-2 text-2xl font-black text-slate-950">{homeworkClass.className}</h2>
-                <p className="mt-2 text-sm font-semibold text-slate-600">{homeworkClass.dayLabel} {homeworkClass.startTime} - {homeworkClass.endTime}</p>
+                <p className="mt-2 text-sm font-semibold text-slate-600">{getClassDayText(homeworkClass)} {homeworkClass.startTime} - {homeworkClass.endTime}</p>
                 <p className="mt-1 text-sm text-slate-500">{homeworkClass.classroomName} · 수강 학생 {homeworkClass.studentCount}명</p>
               </div>
-              <button type="button" onClick={() => setIsCreateOpen(true)} className="inline-flex h-12 items-center justify-center rounded-2xl bg-blue-700 px-5 text-sm font-bold text-white shadow-lg shadow-blue-200 hover:bg-blue-800">숙제 등록</button>
+              <button type="button" onClick={() => setIsCreateOpen(true)} disabled={homeworkClass.studentCount === 0} className="inline-flex h-12 items-center justify-center rounded-2xl bg-blue-700 px-5 text-sm font-bold text-white shadow-lg shadow-blue-200 hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none">숙제 등록</button>
             </div>
           </section>
+        ) : null}
+
+        {homeworkClass && homeworkClass.studentCount === 0 ? (
+          <EmptyState title="수강 학생이 없어 숙제를 배정할 수 없습니다." description="학원에서 이 수업에 학생을 추가하면 숙제를 등록할 수 있습니다." />
         ) : null}
 
         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5">
@@ -307,7 +311,7 @@ export function TeacherClassHomeworkPage({ classId }: { classId: string }) {
 }
 
 function HomeworkList({ homeworks, onSelect, onDelete }: { homeworks: HomeworkSummary[]; onSelect: (id: number) => void; onDelete: (id: number) => void }) {
-  if (homeworks.length === 0) return <EmptyState title="등록된 숙제가 없습니다." description="숙제 등록 버튼으로 첫 숙제를 만들어 주세요." />;
+  if (homeworks.length === 0) return <EmptyState title="아직 등록된 숙제가 없습니다." description="숙제 등록 버튼으로 첫 숙제를 만들어 주세요." />;
   return <section className="grid gap-4 lg:grid-cols-2">{homeworks.map((item) => (
     <article key={item.homeworkId} className="rounded-3xl border border-white/80 bg-white/95 p-5 shadow-xl shadow-slate-200/60">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-lg font-bold text-slate-950">{item.title}</h3><p className="mt-1 text-sm text-slate-500">기한 {formatDate(item.dueDate)} · {item.targetType === "CLASS" ? "수업 전체" : "개별 학생"}</p></div>{item.dueDate < toDateKey(new Date()) && item.notDoneCount > 0 ? <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">기한 지남</span> : null}</div>
@@ -369,6 +373,7 @@ function TargetButton({ active, onClick, children }: { active: boolean; onClick:
 function FormField({ label, children }: { label: string; children: ReactNode }) { return <label className="grid gap-2"><span className="text-sm font-bold text-slate-700">{label}</span>{children}</label>; }
 function EmptyState({ title, description }: { title: string; description: string }) { return <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50/80 px-6 py-10 text-center"><h2 className="text-lg font-bold text-slate-950">{title}</h2><p className="mt-2 text-sm text-slate-600">{description}</p></div>; }
 function ErrorNotice({ message, onRetry }: { message: string; onRetry: () => void | Promise<void> }) { return <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3"><p className="text-sm font-bold text-red-600">{message}</p><button type="button" onClick={() => void onRetry()} className="mt-2 text-sm font-bold text-red-700 underline">다시 시도</button></div>; }
+function getClassDayText(homeworkClass: TeacherHomeworkClass) { return homeworkClass.dayLabels?.length ? homeworkClass.dayLabels.join(", ") : homeworkClass.dayLabel; }
 function getErrorMessage(error: unknown) { return error instanceof ApiError ? error.message : "요청을 처리하지 못했습니다."; }
 function toDateKey(date: Date) { const offset = date.getTimezoneOffset() * 60_000; return new Date(date.getTime() - offset).toISOString().slice(0, 10); }
 function addDays(value: string, days: number) { const date = new Date(`${value}T00:00:00`); date.setDate(date.getDate() + days); return toDateKey(date); }

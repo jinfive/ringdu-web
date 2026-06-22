@@ -245,6 +245,18 @@ export async function getAcademyTeacherInvitations(
   });
 }
 
+export async function cancelTeacherInvitation(
+  invitationId: number,
+  accessToken: string,
+): Promise<TeacherInvitationResponse> {
+  return request<TeacherInvitationResponse>(`/api/academies/me/teacher-invitations/${invitationId}/cancel`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 export async function getAcademyTeachers(accessToken: string): Promise<AcademyTeacherResponse[]> {
   return request<AcademyTeacherResponse[]>("/api/academies/me/teachers", {
     method: "GET",

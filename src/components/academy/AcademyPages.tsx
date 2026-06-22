@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import {
   addAcademyClassStudent,
   ApiError,
+  cancelTeacherInvitation,
   createAcademyStudentConsultationMemo,
   createTeacherInvitation,
   getAcademyStudentConsultationMemos,
@@ -586,9 +587,20 @@ function StudentHomeworkHistoryTab({
         <div><h3 className="font-bold text-slate-950">숙제 이력</h3><p className="mt-1 text-sm text-slate-600">학생에게 배정된 숙제와 해옴 여부를 조회합니다.</p></div>
         <label className="sm:w-48"><span className="text-sm font-bold text-slate-700">상태</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as HomeworkStudentStatus | "ALL")} className="mt-2 h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold"><option value="ALL">전체</option><option value="DONE">해옴</option><option value="NOT_DONE">안해옴</option></select></label>
       </div>
-      {errorMessage ? <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{errorMessage}</p> : null}
+      {errorMessage ? (
+        <div className="flex flex-col gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-bold text-red-600">{errorMessage}</p>
+          <button
+            type="button"
+            onClick={load}
+            className="inline-flex h-10 items-center justify-center rounded-2xl border border-red-200 bg-white px-4 text-sm font-bold text-red-700 transition hover:bg-red-50"
+          >
+            다시 시도
+          </button>
+        </div>
+      ) : null}
       {isLoading ? <p className="text-sm font-semibold text-slate-600">숙제 이력을 불러오고 있습니다.</p> : null}
-      {!isLoading && items.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50/80 px-5 py-8 text-center"><h3 className="font-bold text-slate-950">숙제 이력이 없습니다.</h3><p className="mt-2 text-sm text-slate-600">선생님이 숙제를 배정하면 이곳에 표시됩니다.</p></div> : null}
+      {!isLoading && !errorMessage && items.length === 0 ? <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50/80 px-5 py-8 text-center"><h3 className="font-bold text-slate-950">아직 숙제 이력이 없습니다.</h3><p className="mt-2 text-sm text-slate-600">선생님이 숙제를 배정하면 이곳에 표시됩니다.</p></div> : null}
       <div className="grid gap-3 lg:grid-cols-2">
         {items.map((item) => <article key={item.homeworkStudentId} className="rounded-3xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold text-slate-950">{item.title}</h3><p className="mt-1 text-sm font-semibold text-slate-600">{item.className} · 기한 {item.dueDate}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${homeworkStatusStyles[item.status]}`}>{homeworkStatusLabels[item.status]}</span></div><p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">{item.content}</p>{item.memo ? <p className="mt-3 text-sm font-semibold text-slate-500">메모: {item.memo}</p> : null}</article>)}
       </div>
@@ -1532,6 +1544,7 @@ export function AcademyTeachersPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isInvitationOpen, setIsInvitationOpen] = useState(false);
+  const [cancelingInvitationId, setCancelingInvitationId] = useState<number | null>(null);
 
   const loadTeachers = useCallback(() => {
     if (!accessToken || isPendingApproval) {
@@ -1588,6 +1601,20 @@ export function AcademyTeachersPage() {
       isMounted = false;
     };
   }, [accessToken, isPendingApproval]);
+
+  const handleCancelInvitation = async (invitationId: number) => {
+    if (!accessToken) return;
+    setCancelingInvitationId(invitationId);
+    setErrorMessage("");
+    try {
+      await cancelTeacherInvitation(invitationId, accessToken);
+      loadTeachers();
+    } catch (error) {
+      setErrorMessage(getTeacherInvitationErrorMessage(error));
+    } finally {
+      setCancelingInvitationId(null);
+    }
+  };
 
   return (
     <AcademyShell
@@ -1685,7 +1712,19 @@ export function AcademyTeachersPage() {
                       </p>
                       <p className="mt-3 text-xs font-semibold text-slate-500">보낸 날짜 {formatDate(invitation.createdAt)}</p>
                     </div>
-                    <StatusBadge>{getInvitationStatusLabel(invitation.status)}</StatusBadge>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                      <StatusBadge>{getInvitationStatusLabel(invitation.status)}</StatusBadge>
+                      {invitation.status === "PENDING" ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleCancelInvitation(invitation.invitationId)}
+                          disabled={cancelingInvitationId === invitation.invitationId}
+                          className="inline-flex h-9 items-center justify-center rounded-2xl border border-red-100 bg-white px-3 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                        >
+                          {cancelingInvitationId === invitation.invitationId ? "취소 중" : "초대 취소"}
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                   {invitation.message ? (
                     <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-700">{invitation.message}</p>

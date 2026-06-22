@@ -5,7 +5,9 @@ export type TeacherTodayClassResponse = {
   classId: number;
   className: string;
   dayOfWeek: string;
+  dayOfWeeks?: string[];
   dayLabel: string;
+  dayLabels?: string[];
   startTime: string;
   endTime: string;
   classroomName: string;

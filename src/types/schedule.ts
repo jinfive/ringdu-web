@@ -23,6 +23,7 @@ export type AcademyClassroomRequest = {
 export type AcademyClassRequest = {
   name: string;
   dayOfWeek: ScheduleDayOfWeek;
+  dayOfWeeks: ScheduleDayOfWeek[];
   classroomId: number;
   teacherUserId?: number | null;
   startTime: string;
@@ -34,7 +35,9 @@ export type AcademyClassResponse = {
   classId: number;
   name: string;
   dayOfWeek: ScheduleDayOfWeek;
+  dayOfWeeks: ScheduleDayOfWeek[];
   dayLabel: string;
+  dayLabels: string[];
   classroomId: number;
   classroomName: string;
   teacherUserId: number | null;

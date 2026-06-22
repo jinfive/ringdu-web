@@ -678,7 +678,7 @@ export function TeacherAttendancePage() {
 
           {!isLoading && todayClasses.length === 0 ? (
             <TeacherEmptyState
-              title="오늘 담당 수업이 없습니다."
+              title="출석할 수업이 없습니다."
               description="담당 수업이 배정되면 이곳에서 출석을 체크할 수 있습니다."
             />
           ) : null}
@@ -848,7 +848,18 @@ export function TeacherAttendanceDetailPage({ classId }: { classId: string }) {
           </div>
         </TeacherCard>
 
-        {errorMessage ? <AlertMessage tone="error">{errorMessage}</AlertMessage> : null}
+        {errorMessage ? (
+          <div className="flex flex-col gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-bold text-red-600">{errorMessage}</p>
+            <button
+              type="button"
+              onClick={loadAttendanceSession}
+              className="inline-flex h-10 items-center justify-center rounded-2xl border border-red-200 bg-white px-4 text-sm font-bold text-red-700 transition hover:bg-red-50"
+            >
+              다시 시도
+            </button>
+          </div>
+        ) : null}
 
         {savedMessage ? (
           <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
@@ -861,7 +872,7 @@ export function TeacherAttendanceDetailPage({ classId }: { classId: string }) {
           {isLoading ? <p className="mt-4 text-sm font-semibold text-slate-600">출석부를 불러오고 있습니다.</p> : null}
           {!isLoading && session?.records.length === 0 ? (
             <TeacherEmptyState
-              title="수강 학생이 없습니다."
+              title="수업에 등록된 학생이 없습니다."
               description="수업에 학생이 추가되면 출석 체크 목록에 표시됩니다."
             />
           ) : null}
